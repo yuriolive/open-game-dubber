@@ -2,8 +2,8 @@ import json
 import os
 import re
 import subprocess
-import urllib.parse
-import urllib.request
+
+import requests
 
 
 def get_pr_diff():
@@ -48,23 +48,19 @@ Git Diff:
         "generationConfig": {"temperature": temperature, "responseMimeType": "application/json"},
     }
 
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(data).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "x-goog-api-key": api_key,
-        },
-        method="POST",
-    )
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key,
+    }
 
     try:
-        with urllib.request.urlopen(req) as response:
-            res_data = json.loads(response.read().decode("utf-8"))
-            json_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
-            return json.loads(json_text)
-    except urllib.error.HTTPError as e:
-        print(f"Gemini API Error ({e.code}): {e.read().decode('utf-8')}")
+        response = requests.post(url, json=data, headers=headers, timeout=30)
+        response.raise_for_status()
+        res_data = response.json()
+        json_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
+        return json.loads(json_text)
+    except requests.exceptions.HTTPError as e:
+        print(f"Gemini API Error ({e.response.status_code}): {e.response.text}")
         raise
     except (json.JSONDecodeError, KeyError, IndexError) as e:
         print(f"Error parsing AI response: {e}")
@@ -77,26 +73,18 @@ def update_pr(title, body, github_token, repo, pr_number):
     print(f"Updating PR at: {url}")
 
     data = {"title": title, "body": body}
-
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(data).encode("utf-8"),
-        headers={
-            "Authorization": f"token {github_token}",
-            "Accept": "application/vnd.github.v3+json",
-            "Content-Type": "application/json",
-        },
-        method="PATCH",
-    )
+    headers = {
+        "Authorization": f"token {github_token}",
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+    }
 
     try:
-        with urllib.request.urlopen(req) as response:
-            if response.status == 200:
-                print("Successfully updated PR title and description.")
-            else:
-                print(f"Unexpected status code: {response.status}")
-    except urllib.error.HTTPError as e:
-        print(f"GitHub API Error ({e.code}): {e.read().decode('utf-8')}")
+        response = requests.patch(url, json=data, headers=headers, timeout=30)
+        response.raise_for_status()
+        print("Successfully updated PR title and description.")
+    except requests.exceptions.HTTPError as e:
+        print(f"GitHub API Error ({e.response.status_code}): {e.response.text}")
         raise
 
 

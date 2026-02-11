@@ -86,8 +86,11 @@ class AudioProcessor:
         logger.info(f"Denoising vocals: {vocal_path}")
         try:
             # DeepFilterNet typically provides a CLI 'df-process'
+            # We must use 'uv run' to ensure it's found in the environment
+            cmd = ["uv", "run", "df-process", "--", vocal_path, "-o", os.path.dirname(output_path)]
+            logger.info(f"Running DeepFilterNet: {' '.join(cmd)}")
             result = subprocess.run(
-                ["df-process", "--", vocal_path, "-o", os.path.dirname(output_path)],
+                cmd,
                 check=True,
                 capture_output=True,
                 text=True,

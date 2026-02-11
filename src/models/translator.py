@@ -59,7 +59,8 @@ class OllamaTranslator:
         prompt = f"""
         Translate the following game dialogue from English to {target_lang}.
         Maintain the character's tone, emotion, and any specific gaming terminology.
-        DO NOT include any explanation or extra text, ONLY the translation.
+
+        CRITICAL: Return ONLY the translated text. NO explanations, NO notes, NO parenthetical comments, NO metadata.
 
         {f"Context: {context}" if context else ""}
 

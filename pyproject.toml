@@ -27,6 +27,7 @@ dependencies = [
     "accelerate>=0.33.0",
     "qwen-tts>=0.1.1",
     "sox>=1.5.0",
+    "requests>=2.0.0",
 ]
 
 [tool.ruff]
