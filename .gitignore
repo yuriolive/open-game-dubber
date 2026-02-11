@@ -88,8 +88,11 @@ cython_debug/
 .idea/
 
 # Open Game Dubber Specific
-models/
+/models/
 output/
 temp/
 *.wav
 *.mp3
+
+# Local state
+manifest.json

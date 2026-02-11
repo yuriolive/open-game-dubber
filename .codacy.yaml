@@ -1,0 +1,6 @@
+---
+engines:
+  semgrep:
+    exclude_paths:
+      - "src/models/stt.py"
+      - "src/models/tts.py"

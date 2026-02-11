@@ -10,6 +10,7 @@ except ImportError:
     torch = None
     WhisperModel = None
 
+
 class FasterWhisperTranscriber:
     """
     A wrapper for the Faster-Whisper model to handle audio transcription.
@@ -45,11 +46,7 @@ class FasterWhisperTranscriber:
 
             # We delay import or model loading until needed
             print(f"Loading Faster-Whisper model: {self.model_size} on {self.device}...")
-            self._model = WhisperModel(
-                self.model_size,
-                device=self.device,
-                compute_type=self.compute_type
-            )
+            self._model = WhisperModel(self.model_size, device=self.device, compute_type=self.compute_type)
         return self._model
 
     def transcribe(self, audio_path: str, language: str = "en") -> List[dict]:
@@ -66,20 +63,11 @@ class FasterWhisperTranscriber:
         if not os.path.exists(audio_path):
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-        segments, info = self.model.transcribe(
-            audio_path,
-            beam_size=5,
-            language=language,
-            vad_filter=True
-        )
+        segments, info = self.model.transcribe(audio_path, beam_size=5, language=language, vad_filter=True)
 
         result = []
         # segments is a generator, so we iterate
         for segment in segments:
-            result.append({
-                "start": segment.start,
-                "end": segment.end,
-                "text": segment.text.strip()
-            })
+            result.append({"start": segment.start, "end": segment.end, "text": segment.text.strip()})
 
         return result
