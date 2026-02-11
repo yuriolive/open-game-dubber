@@ -92,6 +92,17 @@ class DubbingPipeline:
             logger.error(f"Failed to process {filename}: {e}")
             self.state.mark_failed(audio_path, str(e))
             return False
+        finally:
+            # Cleanup temporary files
+            temp_dir = os.path.join(self.output_dir, "temp")
+            if os.path.exists(temp_dir):
+                import shutil
+
+                try:
+                    logger.info("Cleaning up temporary files...")
+                    shutil.rmtree(temp_dir)
+                except Exception as cleanup_err:
+                    logger.warning(f"Failed to cleanup temporary files: {cleanup_err}")
 
 
 if __name__ == "__main__":

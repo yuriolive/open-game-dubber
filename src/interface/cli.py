@@ -61,8 +61,8 @@ def dub_batch(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    # Get all WAV files
-    files = glob.glob(os.path.join(input_dir, "*.wav"))
+    # Get all WAV files case-insensitively
+    files = [f for f in glob.glob(os.path.join(input_dir, "*")) if f.lower().endswith(".wav")]
     if not files:
         typer.echo(f"No WAV files found in {input_dir}")
         return
