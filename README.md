@@ -23,18 +23,29 @@
 ### Installation
 
 1.  Clone the repository:
+    ```bash
+    git clone https://github.com/yuriolive/open-game-dubber.git
+    cd open-game-dubber
+    ```
 
-
-2.  Install dependencies using uv:
+2.  Install dependencies using `uv`:
+    ```bash
+    uv sync
+    ```
     
 ### Model Setup
 
 Before running the pipeline, you need to download the required AI models (Faster-Whisper, Demucs, etc.). We provide a convenient CLI command for this:
 
+```bash
+uv run dub download
+```
+
 ### Usage
 
-**CLI Batch Mode**:
+**CLI Commands**:
 
+```text
  Usage: python -m src.interface.cli [OPTIONS] COMMAND [ARGS]...
 
  Open Game Dubber CLI
@@ -49,6 +60,7 @@ Before running the pipeline, you need to download the required AI models (Faster
 │ download  Download all required AI models (Faster-Whisper, Demucs, etc.)     │
 │ hello     Test command to verify CLI is working.                             │
 ╰──────────────────────────────────────────────────────────────────────────────╯
+```
 
 ## Documentation
 

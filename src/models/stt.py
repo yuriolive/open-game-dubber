@@ -1,13 +1,13 @@
 import os
 from typing import List
 
-import torch
-
 # We use a try-except block to allow linting/testing without heavy dependencies if needed,
 # but in production this should be a hard dependency.
 try:
+    import torch
     from faster_whisper import WhisperModel
 except ImportError:
+    torch = None
     WhisperModel = None
 
 class FasterWhisperTranscriber:
@@ -18,8 +18,8 @@ class FasterWhisperTranscriber:
     def __init__(
         self,
         model_size: str = "large-v3-turbo",
-        device: str = "cuda" if torch.cuda.is_available() else "cpu",
-        compute_type: str = "float16" if torch.cuda.is_available() else "int8",
+        device: str = "cuda" if torch and torch.cuda.is_available() else "cpu",
+        compute_type: str = "float16" if torch and torch.cuda.is_available() else "int8",
     ):
         """
         Initialize the transcriber.
