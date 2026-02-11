@@ -4,21 +4,33 @@ from unittest.mock import MagicMock, patch
 
 # Mock dependencies before importing the module under test
 # This allows running tests without installing heavy ML libraries
-sys.modules["torch"] = MagicMock()
-sys.modules["torch.cuda"] = MagicMock()
-sys.modules["torch.cuda.is_available"] = MagicMock(return_value=False)
-sys.modules["faster_whisper"] = MagicMock()
-
-# Now import the module
-# We need to ensure the module sees our mocks
-from src.models.stt import FasterWhisperTranscriber  # noqa: E402
+# Removed global sys.modules patching
+# from src.models.stt import FasterWhisperTranscriber will be done in setUp
 
 
 class TestFasterWhisperTranscriber(unittest.TestCase):
     def setUp(self):
-        # Reset the mock for each test
-        sys.modules["faster_whisper"].reset_mock()
+        # Patch modules before importing FasterWhisperTranscriber
+        self.modules_patcher = patch.dict(
+            "sys.modules", {"torch": MagicMock(), "torch.cuda": MagicMock(), "faster_whisper": MagicMock()}
+        )
+        self.modules_patcher.start()
+
+        # Configure torch.cuda.is_available
+        import sys
+
+        sys.modules["torch.cuda"].is_available.return_value = False
+
+        if "src.models.stt" in sys.modules:
+            del sys.modules["src.models.stt"]
+        from src.models.stt import FasterWhisperTranscriber
+
         self.transcriber = FasterWhisperTranscriber(device="cpu")
+
+    def tearDown(self):
+        self.modules_patcher.stop()
+        if "src.models.stt" in sys.modules:
+            del sys.modules["src.models.stt"]
 
     def test_initialization(self):
         self.assertEqual(self.transcriber.device, "cpu")
