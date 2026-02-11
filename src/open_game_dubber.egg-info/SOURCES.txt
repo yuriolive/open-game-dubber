@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+src/__init__.py
+src/core/__init__.py
+src/interface/__init__.py
+src/interface/cli.py
+src/models/__init__.py
+src/models/stt.py
+src/open_game_dubber.egg-info/PKG-INFO
+src/open_game_dubber.egg-info/SOURCES.txt
+src/open_game_dubber.egg-info/dependency_links.txt
+src/open_game_dubber.egg-info/requires.txt
+src/open_game_dubber.egg-info/top_level.txt
+src/utils/__init__.py
+src/utils/model_manager.py
+tests/test_stt.py
