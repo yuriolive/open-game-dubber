@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+import tempfile
 
 from src.core.state_manager import StateManager
 from src.models.stt import FasterWhisperTranscriber
@@ -40,66 +41,62 @@ class DubbingPipeline:
         logger.info(f"--- Processing: {filename} ---")
 
         try:
-            # 1. Separate Vocals
-            vocal_dir = os.path.join(self.output_dir, "temp", "vocals")
-            separated = self.processor.separate_vocals(audio_path, vocal_dir)
-            if not separated:
-                raise Exception("Vocal separation failed")
+            # Use a unique temporary directory for this file processing task
+            with tempfile.TemporaryDirectory(dir=self.output_dir, prefix="dub_tmp_") as temp_dir:
+                # 1. Separate Vocals
+                vocal_root = os.path.join(temp_dir, "vocals")
+                separated = self.processor.separate_vocals(audio_path, vocal_root)
+                if not separated:
+                    raise Exception("Vocal separation failed")
 
-            vocal_path = separated["vocals"]
-            bg_path = separated["background"]
+                vocal_path = separated["vocals"]
+                bg_path = separated["background"]
 
-            # 2. Transcribe
-            # Note: We transcribe the cleaned vocals for better accuracy
-            segments = self.stt.transcribe(vocal_path)
-            if not segments:
-                raise Exception("Transcription returned no segments")
+                # 2. Denoise Vocals
+                denoised_vocal_path = os.path.join(temp_dir, "vocals_clean.wav")
+                vocal_path = self.processor.denoise_vocals(vocal_path, denoised_vocal_path) or vocal_path
 
-            original_text = " ".join([seg["text"] for seg in segments])
-            logger.info(f"Transcription: {original_text}")
+                # 3. Transcribe
+                segments = self.stt.transcribe(vocal_path)
+                if not segments:
+                    raise Exception("Transcription returned no segments")
 
-            # 3. Translate
-            translated_text = self.translator.translate(original_text, self.target_lang)
-            logger.info(f"Translation: {translated_text}")
+                original_text = " ".join([seg["text"] for seg in segments])
+                logger.info(f"Transcription: {original_text}")
 
-            # 4. Synthesize Dub
-            dub_output_path = os.path.join(self.output_dir, "temp", "dubs", filename)
-            os.makedirs(os.path.dirname(dub_output_path), exist_ok=True)
+                # 4. Translate
+                translated_text = self.translator.translate(original_text, self.target_lang)
+                logger.info(f"Translation: {translated_text}")
 
-            # Using original vocals as reference for cloning
-            synthesized_path = self.tts.generate_dub(
-                translated_text, vocal_path, dub_output_path, language=self.target_lang
-            )
-            if not synthesized_path:
-                raise Exception("TTS synthesis failed")
+                # 5. Synthesize Dub
+                dub_output_path = os.path.join(temp_dir, "dubs", filename)
+                os.makedirs(os.path.dirname(dub_output_path), exist_ok=True)
 
-            # 5. Mix with background
-            final_output_path = os.path.join(self.output_dir, filename)
+                synthesized_path = self.tts.generate_dub(
+                    translated_text, vocal_path, dub_output_path, language=self.target_lang
+                )
+                if not synthesized_path:
+                    raise Exception("TTS synthesis failed")
 
-            if bg_path and os.path.exists(bg_path):
-                self.processor.mix_audio(synthesized_path, bg_path, final_output_path)
-            else:
-                # If no background, just copy the dub
-                shutil.copy(synthesized_path, final_output_path)
+                # 6. Mix with background
+                final_output_path = os.path.join(self.output_dir, filename)
 
-            # 6. Mark success
-            self.state.mark_completed(audio_path, {"original_text": original_text, "translated_text": translated_text})
-            logger.info(f"Successfully dubbed: {filename}")
-            return True
+                if bg_path and os.path.exists(bg_path):
+                    self.processor.mix_audio(synthesized_path, bg_path, final_output_path)
+                else:
+                    shutil.copy(synthesized_path, final_output_path)
+
+                # 7. Mark success
+                self.state.mark_completed(
+                    audio_path, {"original_text": original_text, "translated_text": translated_text}
+                )
+                logger.info(f"Successfully dubbed: {filename}")
+                return True
 
         except Exception as e:
             logger.error(f"Failed to process {filename}: {e}")
             self.state.mark_failed(audio_path, str(e))
             return False
-        finally:
-            # Cleanup temporary files
-            temp_dir = os.path.join(self.output_dir, "temp")
-            if os.path.exists(temp_dir):
-                try:
-                    logger.info("Cleaning up temporary files...")
-                    shutil.rmtree(temp_dir)
-                except Exception as cleanup_err:
-                    logger.warning(f"Failed to cleanup temporary files: {cleanup_err}")
 
 
 if __name__ == "__main__":

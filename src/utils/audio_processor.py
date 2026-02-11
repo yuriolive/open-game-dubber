@@ -4,8 +4,13 @@ import subprocess
 from typing import Optional
 
 import soundfile as sf
-import torch
-import torchaudio
+
+try:
+    import torch
+    import torchaudio
+except ImportError:
+    torch = None
+    torchaudio = None
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +21,7 @@ class AudioProcessor:
     """
 
     def __init__(self):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = "cuda" if torch and torch.cuda.is_available() else "cpu"
 
     def _resolve_demucs_paths(self, output_dir: str, audio_path: str) -> Optional[dict[str, str]]:
         """Resolves the output paths for Demucs separation."""
@@ -35,6 +40,7 @@ class AudioProcessor:
         """
         Uses Demucs to separate vocals from background music/sfx.
         Returns a dictionary with 'vocals' and 'background' paths.
+        Now runs in a separate process to avoid monkey-patching torchaudio.
         """
         if not os.path.exists(audio_path):
             logger.error(f"Audio file not found: {audio_path}")
@@ -42,88 +48,34 @@ class AudioProcessor:
 
         logger.info(f"Separating vocals for: {audio_path}")
         try:
-            from demucs.separate import main as demucs_main
+            # We use subprocess instead of in-process call to avoid global monkey-patching
+            # and to isolate dependency issues (like the backend problems on Windows).
+            # The demucs CLI is expected to be in the environment.
+            cmd = [
+                "uv",
+                "run",
+                "python",
+                "-m",
+                "demucs.separate",
+                "--two-stems",
+                "vocals",
+                "-o",
+                output_dir,
+                audio_path,
+            ]
 
-            logger.info(f"Running Demucs in-process with args: {audio_path}")
-            with self._TorchaudioPatch():
-                args = ["--two-stems", "vocals", "-o", output_dir, audio_path]
-                try:
-                    demucs_main(args)
-                except SystemExit as e:
-                    if e.code != 0:
-                        logger.error(f"Demucs in-process failed with exit code {e.code}")
-                        return None
+            logger.info(f"Running Demucs via subprocess: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+
+            if result.returncode != 0:
+                logger.error(f"Demucs separation failed with exit code {result.returncode}")
+                logger.error(f"STDERR: {result.stderr}")
+                return None
 
             return self._resolve_demucs_paths(output_dir, audio_path)
         except Exception as e:
             logger.error(f"Demucs separation failed: {e}", exc_info=True)
             return None
-
-    class _TorchaudioPatch:
-        """
-        Context manager to patch torchaudio locally during Demucs execution.
-        Redircts torchaudio save/load to soundfile to avoid backend issues.
-        """
-
-        def __init__(self):
-            self.original_save = torchaudio.save
-            self.original_load = torchaudio.load
-
-        def __enter__(self):
-            # Patch both the module and where it might have been imported
-            # We manually replace the functions instead of using unittest.mock.patch
-            # to avoid direct production dependency on test libraries.
-            torchaudio.save = self.soundfile_save_patch
-            torchaudio.load = self.soundfile_load_patch
-
-            # Also attempt to patch demucs internals where it might have pre-imported 'ta'
-            try:
-                import demucs.separate as ds
-
-                if hasattr(ds, "ta"):
-                    ds.ta.save = self.soundfile_save_patch
-                    ds.ta.load = self.soundfile_load_patch
-                import demucs.audio as da
-
-                if hasattr(da, "ta"):
-                    da.ta.save = self.soundfile_save_patch
-                    da.ta.load = self.soundfile_load_patch
-            except ImportError:
-                pass
-
-            return self
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            torchaudio.save = self.original_save
-            torchaudio.load = self.original_load
-
-            try:
-                import demucs.separate as ds
-
-                if hasattr(ds, "ta"):
-                    ds.ta.save = self.original_save
-                    ds.ta.load = self.original_load
-                import demucs.audio as da
-
-                if hasattr(da, "ta"):
-                    da.ta.save = self.original_save
-                    da.ta.load = self.original_load
-            except ImportError:
-                pass
-
-        @staticmethod
-        def soundfile_save_patch(filepath, src, sample_rate, **kwargs):
-            data = src.cpu().detach().numpy()
-            if len(data.shape) == 2:
-                data = data.T
-            sf.write(filepath, data, sample_rate)
-
-        @staticmethod
-        def soundfile_load_patch(filepath, **kwargs):
-            data, sr = sf.read(filepath, always_2d=True)
-            # soundfile returns (frames, channels), torchaudio expects (channels, frames)
-            tensor = torch.from_numpy(data.T).float()
-            return tensor, sr
 
     def denoise_vocals(self, vocal_path: str, output_path: str) -> Optional[str]:
         """
@@ -143,20 +95,18 @@ class AudioProcessor:
             )
             logger.info(f"DeepFilterNet output: {result.stdout}")
 
-            # DeepFilterNet usually appends _DeepFilterNet3 to the filename or similar
-            # Check for suffixes if output_path doesn't exist directly
-            if os.path.exists(output_path):
-                return output_path
-
-            # Scan directory for any file starting with original name and ending with .wav
             base_name = os.path.splitext(os.path.basename(vocal_path))[0]
             out_dir = os.path.dirname(output_path)
-            for f in os.listdir(out_dir):
-                if f.startswith(base_name) and "DeepFilterNet" in f and f.endswith(".wav"):
-                    found_path = os.path.join(out_dir, f)
-                    # Rename to expected output_path for consistency
-                    os.rename(found_path, output_path)
-                    return output_path
+
+            # DeepFilterNet usually appends _DeepFilterNet3 to the filename or similar
+            expected_suffix = "_DeepFilterNet3.wav"
+            potential_path = os.path.join(out_dir, base_name + expected_suffix)
+
+            if os.path.exists(output_path):
+                return output_path
+            elif os.path.exists(potential_path):
+                os.replace(potential_path, output_path)
+                return output_path
 
             return output_path if os.path.exists(output_path) else None
         except subprocess.CalledProcessError as e:
@@ -172,6 +122,10 @@ class AudioProcessor:
         """
         Combines vocals and background tracks using torchaudio.
         """
+        if not torch or not torchaudio:
+            logger.error("torch/torchaudio not found. Mixing is not possible without these dependencies.")
+            return
+
         logger.info(f"Mixing audio to: {output_path}")
         vocal_data, sr_v = sf.read(vocal_path, always_2d=True)
         # sf reads as (frames, channels), torchaudio expects (channels, frames)

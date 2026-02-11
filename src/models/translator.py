@@ -30,7 +30,10 @@ class OllamaTranslator:
 
         {f"Context: {context}" if context else ""}
 
-        Text to translate: "{text}"
+        Text to translate:
+        ###
+        {text}
+        ###
         Translation:
         """
 
