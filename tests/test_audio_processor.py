@@ -156,8 +156,9 @@ class TestAudioProcessor(unittest.TestCase):
             # Verify the call pattern
             args, kwargs = mock_run.call_args
             cmd_list = args[0]
-            self.assertEqual(cmd_list[0], "df-process")
-            self.assertEqual(cmd_list[1], "--")
+            self.assertEqual(cmd_list[0], "uv")
+            self.assertEqual(cmd_list[1], "run")
+            self.assertEqual(cmd_list[2], "deepFilter")
             self.assertIn(vocal_path, cmd_list)
 
 
