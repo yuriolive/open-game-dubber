@@ -16,9 +16,17 @@ def get_pr_diff():
 
 
 def generate_description(diff, api_key):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-lite")
+    temperature = float(os.environ.get("GEMINI_TEMPERATURE", "0.7"))
 
-    prompt = f"""You are an expert software engineer.
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    print(f"Calling Gemini API (model: {model}, temp: {temperature})...")
+
+    custom_prompt = os.environ.get("GEMINI_PROMPT")
+    if custom_prompt:
+        prompt = f"{custom_prompt}\n\nGit Diff:\n{diff[:15000]}"
+    else:
+        prompt = f"""You are an expert software engineer.
 Review the following git diff and generate a concise, professional Pull Request description.
 Format the output in Markdown with the following sections:
 - **Summary**: A brief overview of the changes.
@@ -26,22 +34,27 @@ Format the output in Markdown with the following sections:
 - **Impact**: How these changes affect the project.
 
 Git Diff:
-{diff[:15000]} # Truncate if too large
+{diff[:15000]}
 """
 
-    data = {"contents": [{"parts": [{"text": prompt}]}]}
+    data = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": temperature}}
 
     req = urllib.request.Request(
         url, data=json.dumps(data).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST"
     )
 
-    with urllib.request.urlopen(req) as response:
-        res_data = json.loads(response.read().decode("utf-8"))
-        return res_data["candidates"][0]["content"]["parts"][0]["text"]
+    try:
+        with urllib.request.urlopen(req) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+            return res_data["candidates"][0]["content"]["parts"][0]["text"]
+    except urllib.error.HTTPError as e:
+        print(f"Gemini API Error ({e.code}): {e.read().decode('utf-8')}")
+        raise
 
 
 def update_pr_description(description, github_token, repo, pr_number):
     url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+    print(f"Updating PR description at: {url}")
 
     data = {"body": description}
 
@@ -56,11 +69,15 @@ def update_pr_description(description, github_token, repo, pr_number):
         method="PATCH",
     )
 
-    with urllib.request.urlopen(req) as response:
-        if response.status == 200:
-            print("Successfully updated PR description.")
-        else:
-            print(f"Failed to update PR description: {response.status}")
+    try:
+        with urllib.request.urlopen(req) as response:
+            if response.status == 200:
+                print("Successfully updated PR description.")
+            else:
+                print(f"Unexpected status code: {response.status}")
+    except urllib.error.HTTPError as e:
+        print(f"GitHub API Error ({e.code}): {e.read().decode('utf-8')}")
+        raise
 
 
 def main():
