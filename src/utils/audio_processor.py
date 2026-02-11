@@ -107,9 +107,21 @@ class AudioProcessor:
             logger.info(f"DeepFilterNet output: {result.stdout}")
             
             # DeepFilterNet usually appends _DeepFilterNet3 to the filename or similar
-            # For simplicity, we expect the output to be at the requested output_path if we can control it
-            # or we rename the found file.
-            return output_path
+            # Check for suffixes if output_path doesn't exist directly
+            if os.path.exists(output_path):
+                return output_path
+                
+            # Scan directory for any file starting with original name and ending with .wav
+            base_name = os.path.splitext(os.path.basename(vocal_path))[0]
+            out_dir = os.path.dirname(output_path)
+            for f in os.listdir(out_dir):
+                if f.startswith(base_name) and "DeepFilterNet" in f and f.endswith(".wav"):
+                    found_path = os.path.join(out_dir, f)
+                    # Rename to expected output_path for consistency
+                    os.rename(found_path, output_path)
+                    return output_path
+                    
+            return output_path if os.path.exists(output_path) else None
         except subprocess.CalledProcessError as e:
             logger.error(f"DeepFilterNet denoising failed with exit code {e.returncode}")
             logger.error(f"STDOUT: {e.stdout}")
@@ -138,7 +150,8 @@ class AudioProcessor:
         # Simple additive mix (ensure they are the same shape)
         # In a real scenario, we'd handle channel matching/length matching more robustly
         min_len = min(vocal.shape[1], bg.shape[1])
-        mixed = vocal[:, :min_len] + bg[:, :min_len]
+        # Prevent digital clipping by reducing gain (simple additive mix can exceed 1.0)
+        mixed = (vocal[:, :min_len] + bg[:, :min_len]) * 0.5
         
         
         # Use soundfile for saving to avoid torchaudio/torchcodec issues on Windows

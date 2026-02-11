@@ -40,19 +40,30 @@ class StateManager:
         except Exception as e:
             logger.error(f"Failed to save manifest: {e}")
 
+    def _get_key(self, file_path: str) -> str:
+        """
+        Generates a unique key for a file path.
+        Uses relative path from current working directory to avoid collisions.
+        """
+        try:
+            return os.path.relpath(file_path, os.getcwd())
+        except ValueError:
+            # Fallback for different drives on Windows
+            return os.path.abspath(file_path)
+
     def is_processed(self, file_path: str) -> bool:
         """
         Checks if a file is already marked as 'completed' in the manifest.
         """
-        filename = os.path.basename(file_path)
-        return self.state.get(filename, {}).get("status") == "completed"
+        key = self._get_key(file_path)
+        return self.state.get(key, {}).get("status") == "completed"
 
     def mark_completed(self, file_path: str, metadata: Dict[str, Any] = None):
         """
         Marks a file as completed and saves metadata.
         """
-        filename = os.path.basename(file_path)
-        self.state[filename] = {
+        key = self._get_key(file_path)
+        self.state[key] = {
             "status": "completed",
             "timestamp": datetime.now().isoformat(),
             "metadata": metadata or {}
@@ -63,8 +74,8 @@ class StateManager:
         """
         Marks a file as failed with an error message.
         """
-        filename = os.path.basename(file_path)
-        self.state[filename] = {
+        key = self._get_key(file_path)
+        self.state[key] = {
             "status": "failed",
             "timestamp": datetime.now().isoformat(),
             "error": error

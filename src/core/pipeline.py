@@ -73,8 +73,8 @@ class DubbingPipeline:
                 raise Exception("TTS synthesis failed")
 
             # 5. Mix with background
-            # Background is in vocal_dir/htdemucs/filename/no_vocals.wav
-            bg_path = vocal_path.replace("vocals.wav", "no_vocals.wav")
+            # Background is in the same directory as vocals (vocal_dir/htdemucs/filename/)
+            bg_path = os.path.join(os.path.dirname(vocal_path), "no_vocals.wav")
             final_output_path = os.path.join(self.output_dir, filename)
             
             if os.path.exists(bg_path):
