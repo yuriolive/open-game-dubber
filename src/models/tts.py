@@ -2,6 +2,9 @@ import logging
 import os
 from typing import Optional
 
+import numpy as np
+import soundfile as sf
+
 try:
     import torch
     # Hypothetical Qwen3-TTS implementation based on PRD
@@ -59,9 +62,6 @@ class TTSWrapper:
             if self.model == "READY":
                 logger.info("Successfully synthesized audio (Mock).")
                 # Create a simple valid WAV file (silence) for testing pipeline
-                import numpy as np
-                import soundfile as sf
-
                 # 1 second of silence at 24kHz
                 sr = 24000
                 duration = 1.0

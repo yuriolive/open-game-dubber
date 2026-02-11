@@ -27,42 +27,32 @@ class TestAudioProcessor(unittest.TestCase):
             if os.path.exists(p):
                 os.remove(p)
 
-    def test_mix_audio_channel_matching_mono_stereo(self):
-        """Tests that mono vocals and stereo background are mixed to stereo output."""
-        # Create dummy mono vocal (100 samples, 1 channel)
-        vocal_data = np.random.uniform(-1, 1, (100, 1)).astype(np.float32)
+    def _create_dummy_and_mix(self, vocal_channels, bg_channels, expected_channels):
+        """Helper to create dummy audio, mix them, and verify output."""
+        # Create dummy data
+        vocal_data = np.random.uniform(-1, 1, (100, vocal_channels)).astype(np.float32)
         sf.write(self.vocal_path, vocal_data, 16000)
 
-        # Create dummy stereo background (100 samples, 2 channels)
-        bg_data = np.random.uniform(-1, 1, (100, 2)).astype(np.float32)
+        bg_data = np.random.uniform(-1, 1, (100, bg_channels)).astype(np.float32)
         sf.write(self.bg_path, bg_data, 16000)
 
-        # Mock torchaudio resample to return the input (or something simple)
+        # Mock torchaudio resample
         with patch("torchaudio.transforms.Resample", return_value=lambda x: x):
             self.processor.mix_audio(self.vocal_path, self.bg_path, self.output_path)
 
-        # Verify output exists and is stereo
+        # Verify output
         self.assertTrue(os.path.exists(self.output_path))
         data, sr = sf.read(self.output_path)
-        self.assertEqual(data.shape[1], 2)
+        self.assertEqual(data.shape[1], expected_channels)
         self.assertEqual(sr, 16000)
+
+    def test_mix_audio_channel_matching_mono_stereo(self):
+        """Tests that mono vocals and stereo background are mixed to stereo output."""
+        self._create_dummy_and_mix(vocal_channels=1, bg_channels=2, expected_channels=2)
 
     def test_mix_audio_channel_matching_stereo_mono(self):
         """Tests that stereo vocals and mono background are mixed to stereo output."""
-        # Create dummy stereo vocal (100 samples, 2 channels)
-        vocal_data = np.random.uniform(-1, 1, (100, 2)).astype(np.float32)
-        sf.write(self.vocal_path, vocal_data, 16000)
-
-        # Create dummy mono background (100 samples, 1 channel)
-        bg_data = np.random.uniform(-1, 1, (100, 1)).astype(np.float32)
-        sf.write(self.bg_path, bg_data, 16000)
-
-        with patch("torchaudio.transforms.Resample", return_value=lambda x: x):
-            self.processor.mix_audio(self.vocal_path, self.bg_path, self.output_path)
-
-        self.assertTrue(os.path.exists(self.output_path))
-        data, sr = sf.read(self.output_path)
-        self.assertEqual(data.shape[1], 2)
+        self._create_dummy_and_mix(vocal_channels=2, bg_channels=1, expected_channels=2)
 
     def test_separate_vocals_returns_dict(self):
         """Tests that separate_vocals returns the expected dictionary format."""

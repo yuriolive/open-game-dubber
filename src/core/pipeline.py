@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 
 from src.core.state_manager import StateManager
 from src.models.stt import FasterWhisperTranscriber
@@ -79,8 +80,6 @@ class DubbingPipeline:
                 self.processor.mix_audio(synthesized_path, bg_path, final_output_path)
             else:
                 # If no background, just copy the dub
-                import shutil
-
                 shutil.copy(synthesized_path, final_output_path)
 
             # 6. Mark success
@@ -96,8 +95,6 @@ class DubbingPipeline:
             # Cleanup temporary files
             temp_dir = os.path.join(self.output_dir, "temp")
             if os.path.exists(temp_dir):
-                import shutil
-
                 try:
                     logger.info("Cleaning up temporary files...")
                     shutil.rmtree(temp_dir)
