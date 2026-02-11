@@ -29,8 +29,6 @@ class OllamaTranslator:
             response = requests.post(self.pull_url, json=payload, stream=True, timeout=3600)
             response.raise_for_status()
 
-            import json
-
             for line in response.iter_lines():
                 if line:
                     status = json.loads(line.decode("utf-8"))
