@@ -25,28 +25,35 @@ class TTSWrapper:
         self.model_id = model_id
         self.device = "cuda" if torch and torch.cuda.is_available() else "cpu"
         self._model = None
+        self._model_load_failed = False
 
     @property
     def model(self):
         """
         Lazy load the Qwen3TTS model.
         """
-        if self._model is None:
+        if self._model is None and not self._model_load_failed:
             if not Qwen3TTSModel:
                 logger.error("qwen-tts library not installed or import failed.")
+                self._model_load_failed = True
                 return None
 
             logger.info(f"Loading Qwen3 TTS model: {self.model_id} on {self.device}...")
             try:
-                # Qwen3-TTS recommends bfloat16 for CUDA
+                # Qwen3-TTS recommends bfloat16 for CUDA if supported
+                if self.device == "cuda":
+                    dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+                else:
+                    dtype = torch.float32
+
                 self._model = Qwen3TTSModel.from_pretrained(
                     self.model_id,
                     device_map=self.device,
-                    dtype=torch.bfloat16 if self.device == "cuda" else torch.float32,
+                    dtype=dtype,
                 )
             except Exception as e:
                 logger.error(f"Failed to load TTS model: {e}")
-                self._model = "FAILED"
+                self._model_load_failed = True
         return self._model
 
     def generate_dub(
@@ -79,7 +86,7 @@ class TTSWrapper:
 
         try:
             model = self.model
-            if model is None or model == "FAILED":
+            if model is None:
                 return None
 
             # Qwen3TTSModel has a specific method for zero-shot cloning

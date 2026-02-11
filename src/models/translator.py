@@ -19,13 +19,30 @@ class OllamaTranslator:
 
     def pull_model(self) -> bool:
         """
-        Pull the required model via Ollama API.
+        Pull the required model via Ollama API with streaming progress.
         """
         logger.info(f"Pulling model '{self.model}' via Ollama API...")
         try:
-            payload = {"model": self.model, "stream": False}
-            response = requests.post(self.pull_url, json=payload, timeout=300)  # Increased timeout for download
+            payload = {"model": self.model, "stream": True}
+            # Large models can take substantial time to download; disable timeout for the streaming pull
+            response = requests.post(self.pull_url, json=payload, stream=True, timeout=None)
             response.raise_for_status()
+
+            import json
+
+            for line in response.iter_lines():
+                if line:
+                    status = json.loads(line.decode("utf-8"))
+                    if "status" in status:
+                        # Log progress to keep connection alive and inform user
+                        current = status.get("completed", 0)
+                        total = status.get("total", 0)
+                        if total > 0:
+                            percent = (current / total) * 100
+                            logger.info(f"Ollama Pull [{self.model}]: {status['status']} ({percent:.1f}%)")
+                        else:
+                            logger.info(f"Ollama Pull [{self.model}]: {status['status']}")
+
             logger.info(f"Successfully pulled model '{self.model}'")
             return True
         except Exception as e:
