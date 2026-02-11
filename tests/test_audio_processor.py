@@ -75,6 +75,51 @@ class TestAudioProcessor(unittest.TestCase):
             self.assertTrue(result["vocals"].endswith("vocals.wav"))
             self.assertTrue(result["background"].endswith("no_vocals.wav"))
 
+    def test_torchaudio_patch_restores_original(self):
+        """Tests that _TorchaudioPatch context manager restores original functions."""
+        import torchaudio
+
+        original_save = torchaudio.save
+        original_load = torchaudio.load
+
+        with self.processor._TorchaudioPatch():
+            # Should be patched to our helpers
+            self.assertNotEqual(torchaudio.save, original_save)
+            self.assertNotEqual(torchaudio.load, original_load)
+
+        # Should be restored
+        self.assertEqual(torchaudio.save, original_save)
+        self.assertEqual(torchaudio.load, original_load)
+
+    def test_resolve_demucs_paths(self):
+        """Tests the logic for resolving Demucs output paths."""
+        output_dir = "test_denoise_out"
+        audio_path = "input_audio.wav"
+
+        # Test case: htdemucs (default)
+        # Structure: output_dir/htdemucs/input_audio/vocals.wav
+        with patch("os.path.exists", return_value=True):
+            paths = self.processor._resolve_demucs_paths(output_dir, audio_path)
+            self.assertEqual(paths["vocals"], os.path.join(output_dir, "htdemucs", "input_audio", "vocals.wav"))
+            self.assertEqual(paths["background"], os.path.join(output_dir, "htdemucs", "input_audio", "no_vocals.wav"))
+
+    def test_denoise_vocals_subprocess_call(self):
+        """Tests that denoise_vocals calls df-process with correct security flags."""
+        vocal_path = "vocal.wav"
+        output_path = "vocal_clean.wav"
+
+        with patch("os.path.exists", side_effect=[True, True]), patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="Success")
+
+            self.processor.denoise_vocals(vocal_path, output_path)
+
+            # Verify the call pattern
+            args, kwargs = mock_run.call_args
+            cmd_list = args[0]
+            self.assertEqual(cmd_list[0], "df-process")
+            self.assertEqual(cmd_list[1], "--")
+            self.assertIn(vocal_path, cmd_list)
+
 
 if __name__ == "__main__":
     unittest.main()
