@@ -12,8 +12,9 @@ class TestModelManager(unittest.TestCase):
 
         download_all_models(output_dir="test_models", model_size="tiny")
 
+        import os
         mock_makedirs.assert_called_with("test_models", exist_ok=True)
-        mock_download_whisper.assert_called_with("tiny")
+        mock_download_whisper.assert_called_with("tiny", output_dir=os.path.join("test_models", "faster-whisper"))
         mock_get_demucs.assert_called_with("htdemucs")
 
     @patch("src.utils.model_manager.download_whisper", side_effect=Exception("Network error"))
