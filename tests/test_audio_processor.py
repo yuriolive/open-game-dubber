@@ -156,9 +156,17 @@ class TestAudioProcessor(unittest.TestCase):
             # Verify the call pattern
             args, kwargs = mock_run.call_args
             cmd_list = args[0]
-            self.assertEqual(cmd_list[0], "uv")
-            self.assertEqual(cmd_list[1], "run")
-            self.assertEqual(cmd_list[2], "deepFilter")
+            self.assertEqual(cmd_list[0], "uvx")
+            self.assertEqual(cmd_list[1], "--python")
+            self.assertEqual(cmd_list[2], "3.12")
+            self.assertEqual(cmd_list[3], "--from")
+            self.assertEqual(cmd_list[4], "deepfilternet")
+            self.assertIn("--with", cmd_list)
+            self.assertIn("torch==2.5.1", cmd_list)
+            self.assertIn("soundfile", cmd_list)
+            self.assertIn("deepFilter", cmd_list)
+            self.assertIn("-m", cmd_list)
+            self.assertIn("DeepFilterNet3", cmd_list)
             self.assertIn(vocal_path, cmd_list)
 
 

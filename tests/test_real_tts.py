@@ -38,7 +38,12 @@ def test_generate_dub_basic(tts_wrapper, tmp_path, mocker):
 
     assert result == str(output_audio)
     mock_model.generate_voice_clone.assert_called_once_with(
-        text="Hello", language="Portuguese", ref_audio=str(ref_audio), ref_text="Original Text"
+        text="Hello",
+        language="Portuguese",
+        ref_audio=str(ref_audio),
+        ref_text="Original Text",
+        instruct=None,
+        x_vector_only_mode=False,
     )
     mock_sf_write.assert_called_once()
 
