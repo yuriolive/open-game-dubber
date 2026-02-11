@@ -12,6 +12,14 @@
     - **Audio Processing**: Demucs (Source Separation)
 - **Batch Processing**: Optimized for multi-core CPUs and NVIDIA GPUs.
 
+## Examples
+
+Compare the original English game audio with the locally generated dub:
+
+| Original Audio (English) | Dubbed Audio (Portuguese) |
+| :--- | :--- |
+| [Original Clip](docs/artifacts/original_sample.wav) | [Dubbed Clip](docs/artifacts/dubbed_sample.wav) |
+
 ## Getting Started
 
 ### Prerequisites
