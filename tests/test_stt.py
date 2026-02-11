@@ -62,12 +62,7 @@ class TestFasterWhisperTranscriber(unittest.TestCase):
         self.assertEqual(result[0]["start"], 0.0)
         self.assertEqual(result[0]["end"], 1.5)
 
-        mock_model_instance.transcribe.assert_called_with(
-            "test_audio.wav",
-            beam_size=5,
-            language="en",
-            vad_filter=True
-        )
+        mock_model_instance.transcribe.assert_called_with("test_audio.wav", beam_size=5, language="en", vad_filter=True)
 
     def test_transcribe_file_not_found(self):
         with patch("os.path.exists", return_value=False):

@@ -6,10 +6,12 @@ from src.interface.cli import app
 
 runner = CliRunner()
 
+
 def test_hello():
     result = runner.invoke(app, ["hello"])
     assert result.exit_code == 0
     assert "Hello from Open Game Dubber!" in result.stdout
+
 
 @patch("src.interface.cli.download_all_models")
 def test_download_defaults(mock_download):
@@ -17,6 +19,7 @@ def test_download_defaults(mock_download):
     assert result.exit_code == 0
     assert "Starting download of models to models..." in result.stdout
     mock_download.assert_called_once_with(output_dir="models", model_size="large-v3-turbo")
+
 
 @patch("src.interface.cli.download_all_models")
 def test_download_custom_args(mock_download):

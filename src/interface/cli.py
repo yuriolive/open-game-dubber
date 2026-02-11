@@ -1,12 +1,12 @@
+import glob
 import logging
+import os
 
 import typer
-
-from src.utils.model_manager import download_all_models
-from src.core.pipeline import DubbingPipeline
-import os
-import glob
 from tqdm import tqdm
+
+from src.core.pipeline import DubbingPipeline
+from src.utils.model_manager import download_all_models
 
 app = typer.Typer(help="Open Game Dubber CLI")
 
@@ -60,7 +60,7 @@ def dub_batch(
         raise typer.Exit(1)
 
     os.makedirs(output_dir, exist_ok=True)
-    
+
     # Get all WAV files
     files = glob.glob(os.path.join(input_dir, "*.wav"))
     if not files:

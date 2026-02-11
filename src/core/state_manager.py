@@ -2,9 +2,10 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
+
 
 class StateManager:
     """
@@ -63,11 +64,7 @@ class StateManager:
         Marks a file as completed and saves metadata.
         """
         key = self._get_key(file_path)
-        self.state[key] = {
-            "status": "completed",
-            "timestamp": datetime.now().isoformat(),
-            "metadata": metadata or {}
-        }
+        self.state[key] = {"status": "completed", "timestamp": datetime.now().isoformat(), "metadata": metadata or {}}
         self._save_state()
 
     def mark_failed(self, file_path: str, error: str):
@@ -75,12 +72,9 @@ class StateManager:
         Marks a file as failed with an error message.
         """
         key = self._get_key(file_path)
-        self.state[key] = {
-            "status": "failed",
-            "timestamp": datetime.now().isoformat(),
-            "error": error
-        }
+        self.state[key] = {"status": "failed", "timestamp": datetime.now().isoformat(), "error": error}
         self._save_state()
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

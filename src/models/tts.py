@@ -6,11 +6,12 @@ try:
     import torch
     # Hypothetical Qwen3-TTS implementation based on PRD
     # In a real scenario, this would be the actual import for the model
-    # from qwen_tts import Qwen3TTS 
+    # from qwen_tts import Qwen3TTS
 except ImportError:
     torch = None
 
 logger = logging.getLogger(__name__)
+
 
 class TTSWrapper:
     """
@@ -31,16 +32,10 @@ class TTSWrapper:
             logger.info(f"Loading TTS model: {self.model_id} on {self.device}...")
             # Placeholder for actual model loading logic
             # self._model = Qwen3TTS.from_pretrained(self.model_id).to(self.device)
-            self._model = "READY" # Mock for now
+            self._model = "READY"  # Mock for now
         return self._model
 
-    def generate_dub(
-        self, 
-        text: str, 
-        ref_audio_path: str, 
-        output_path: str,
-        language: str = "pt"
-    ) -> Optional[str]:
+    def generate_dub(self, text: str, ref_audio_path: str, output_path: str, language: str = "pt") -> Optional[str]:
         """
         Generates dubbed audio using voice cloning from reference.
         """
@@ -52,33 +47,34 @@ class TTSWrapper:
             return None
 
         logger.info(f"Generating dub for: {text[:30]}... using {ref_audio_path}")
-        
+
         try:
             # Mock synthesis logic
             # With Qwen3-TTS, it would look something like:
             # audio = self.model.synthesize(text, ref_audio=ref_audio_path, lang=language)
             # torchaudio.save(output_path, audio, 24000)
-            
+
             # For now, we simulate success
             # In production, this would call the actual Qwen3 or Fish Speech backend
             if self.model == "READY":
                 logger.info("Successfully synthesized audio (Mock).")
                 # Create a simple valid WAV file (silence) for testing pipeline
-                import soundfile as sf
                 import numpy as np
-                
+                import soundfile as sf
+
                 # 1 second of silence at 24kHz
                 sr = 24000
                 duration = 1.0
                 data = np.zeros(int(sr * duration))
                 sf.write(output_path, data, sr)
-                
+
                 return output_path
-            
+
             return None
         except Exception as e:
             logger.error(f"TTS synthesis failed: {e}")
             return None
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
