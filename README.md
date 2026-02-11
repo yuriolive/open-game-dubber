@@ -46,7 +46,7 @@ uv run dub download
 **CLI Commands**:
 
 ```text
- Usage: python -m src.interface.cli [OPTIONS] COMMAND [ARGS]...
+ Usage: uv run dub [OPTIONS] COMMAND [ARGS]...
 
  Open Game Dubber CLI
 
