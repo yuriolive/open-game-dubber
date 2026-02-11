@@ -38,8 +38,12 @@ def download_all_models(output_dir: str = "models", model_size: str = "large-v3-
         logger.info(f"Downloading Faster-Whisper model: {model_size}...")
         try:
             # faster-whisper downloads to cache by default, but we can specify output_dir if needed
-            model_path = download_whisper(model_size, output_dir=os.path.join(output_dir, "faster-whisper"))
-            logger.info(f"Faster-Whisper model downloaded to: {model_path}")
+            whisper_output_dir = os.path.join(output_dir, "faster-whisper")
+            if os.path.exists(os.path.join(whisper_output_dir, "model.bin")):
+                logger.info(f"Faster-Whisper model found at: {whisper_output_dir}. Skipping download.")
+            else:
+                model_path = download_whisper(model_size, output_dir=whisper_output_dir)
+                logger.info(f"Faster-Whisper model downloaded to: {model_path}")
         except Exception as e:
             logger.error(f"Failed to download Faster-Whisper model: {e}")
     else:
