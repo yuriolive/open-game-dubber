@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Optional
 
@@ -105,9 +106,6 @@ class OllamaTranslator:
             if not response_text:
                 logger.warning("Ollama returned empty response. Using original text.")
                 return {"text": text, "tts_instruction": ""}
-
-            # Parse JSON response
-            import json
 
             try:
                 parsed = json.loads(response_text)
