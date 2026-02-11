@@ -12,7 +12,7 @@ def get_pr_diff():
 
     # Validate base_ref to prevent command injection or malicious input
     # Only allow alphanumeric, hyphens, underscores, or forward slashes
-    if not re.match(r"^[a-zA-Z0-0\-\_\/]+$", base_ref):
+    if not re.match(r"^[a-zA-Z0-9\-\_\/]+$", base_ref):
         raise ValueError(f"Invalid GITHUB_BASE_REF: {base_ref}")
 
     subprocess.run(["git", "fetch", "origin", base_ref], check=True)

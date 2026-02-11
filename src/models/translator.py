@@ -24,8 +24,8 @@ class OllamaTranslator:
         logger.info(f"Pulling model '{self.model}' via Ollama API...")
         try:
             payload = {"model": self.model, "stream": True}
-            # Large models can take substantial time to download; disable timeout for the streaming pull
-            response = requests.post(self.pull_url, json=payload, stream=True, timeout=None)
+            # Large models can take substantial time to download; use a long timeout (1 hour) for the streaming pull
+            response = requests.post(self.pull_url, json=payload, stream=True, timeout=3600)
             response.raise_for_status()
 
             import json
