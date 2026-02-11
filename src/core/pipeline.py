@@ -41,9 +41,12 @@ class DubbingPipeline:
         try:
             # 1. Separate Vocals
             vocal_dir = os.path.join(self.output_dir, "temp", "vocals")
-            vocal_path = self.processor.separate_vocals(audio_path, vocal_dir)
-            if not vocal_path:
+            separated = self.processor.separate_vocals(audio_path, vocal_dir)
+            if not separated:
                 raise Exception("Vocal separation failed")
+
+            vocal_path = separated["vocals"]
+            bg_path = separated["background"]
 
             # 2. Transcribe
             # Note: We transcribe the cleaned vocals for better accuracy
@@ -70,11 +73,9 @@ class DubbingPipeline:
                 raise Exception("TTS synthesis failed")
 
             # 5. Mix with background
-            # Background is in the same directory as vocals (vocal_dir/htdemucs/filename/)
-            bg_path = os.path.join(os.path.dirname(vocal_path), "no_vocals.wav")
             final_output_path = os.path.join(self.output_dir, filename)
 
-            if os.path.exists(bg_path):
+            if bg_path and os.path.exists(bg_path):
                 self.processor.mix_audio(synthesized_path, bg_path, final_output_path)
             else:
                 # If no background, just copy the dub

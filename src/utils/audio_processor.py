@@ -18,10 +18,10 @@ class AudioProcessor:
     def __init__(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    def separate_vocals(self, audio_path: str, output_dir: str) -> Optional[str]:
+    def separate_vocals(self, audio_path: str, output_dir: str) -> Optional[dict[str, str]]:
         """
         Uses Demucs to separate vocals from background music/sfx.
-        Returns the path to the extracted vocal track.
+        Returns a dictionary with 'vocal' and 'background' paths.
         """
         if not os.path.exists(audio_path):
             logger.error(f"Audio file not found: {audio_path}")
@@ -29,10 +29,8 @@ class AudioProcessor:
 
         logger.info(f"Separating vocals for: {audio_path}")
         try:
-            # We monkeypatch torchaudio to avoid broken torchcodec on Windows
-
-            original_save = torchaudio.save
-            original_load = torchaudio.load
+            # We use a context manager to patch torchaudio locally during Demucs execution
+            from unittest.mock import patch
 
             def soundfile_save_patch(filepath, src, sample_rate, **kwargs):
                 data = src.cpu().detach().numpy()
@@ -46,39 +44,39 @@ class AudioProcessor:
                 tensor = torch.from_numpy(data.T).float()
                 return tensor, sr
 
-            # Apply patches
-            torchaudio.save = soundfile_save_patch
-            torchaudio.load = soundfile_load_patch
-
             from demucs.separate import main as demucs_main
 
-            # Prepare arguments for demucs
-            args = ["--two-stems", "vocals", "-o", output_dir, audio_path]
-
-            logger.info(f"Running Demucs in-process with args: {args}")
-            try:
-                demucs_main(args)
-            except SystemExit as e:
-                if e.code != 0:
-                    logger.error(f"Demucs in-process failed with exit code {e.code}")
-                    return None
-            finally:
-                # Restore originals
-                torchaudio.save = original_save
-                torchaudio.load = original_load
+            logger.info(f"Running Demucs in-process with args: {audio_path}")
+            # Patch both the module and where it might have been imported
+            with (
+                patch("torchaudio.save", soundfile_save_patch),
+                patch("torchaudio.load", soundfile_load_patch),
+                patch("demucs.separate.ta.save", soundfile_save_patch, create=True),
+                patch("demucs.separate.ta.load", soundfile_load_patch, create=True),
+                patch("demucs.audio.ta.save", soundfile_save_patch, create=True),
+                patch("demucs.audio.ta.load", soundfile_load_patch, create=True),
+            ):
+                # Prepare arguments for demucs
+                args = ["--two-stems", "vocals", "-o", output_dir, audio_path]
+                try:
+                    demucs_main(args)
+                except SystemExit as e:
+                    if e.code != 0:
+                        logger.error(f"Demucs in-process failed with exit code {e.code}")
+                        return None
 
             # Demucs structure: output_dir/htdemucs/filename/vocals.wav
             filename = os.path.splitext(os.path.basename(audio_path))[0]
             # htdemucs is the default model name
-            vocal_path = os.path.join(output_dir, "htdemucs", filename, "vocals.wav")
+            model_dir = os.path.join(output_dir, "htdemucs", filename)
+            if not os.path.exists(model_dir):
+                model_dir = os.path.join(output_dir, "hdemucs", filename)
 
-            if os.path.exists(vocal_path):
-                return vocal_path
+            vocal_path = os.path.join(model_dir, "vocals.wav")
+            bg_path = os.path.join(model_dir, "no_vocals.wav")
 
-            # Try falling back to older hdemucs if htdemucs folder missing
-            vocal_path_alt = os.path.join(output_dir, "hdemucs", filename, "vocals.wav")
-            if os.path.exists(vocal_path_alt):
-                return vocal_path_alt
+            if os.path.exists(vocal_path) and os.path.exists(bg_path):
+                return {"vocals": vocal_path, "background": bg_path}
 
             return None
         except Exception as e:
@@ -140,8 +138,16 @@ class AudioProcessor:
         if sr_v != sr_b:
             bg = torchaudio.transforms.Resample(sr_b, sr_v)(bg)
 
-        # Simple additive mix (ensure they are the same shape)
-        # In a real scenario, we'd handle channel matching/length matching more robustly
+        # Handle channel mismatch (e.g., mono vocals + stereo background)
+        if vocal.shape[0] != bg.shape[0]:
+            logger.info(f"Channel mismatch: vocals={vocal.shape[0]}, bg={bg.shape[0]}. Leveling...")
+            if vocal.shape[0] == 1 and bg.shape[0] == 2:
+                vocal = vocal.expand(2, -1)
+            elif vocal.shape[0] == 2 and bg.shape[0] == 1:
+                bg = bg.expand(2, -1)
+            else:
+                logger.warning("Unusual channel counts, simple expansion might not work perfectly.")
+
         min_len = min(vocal.shape[1], bg.shape[1])
         # Prevent digital clipping by reducing gain (simple additive mix can exceed 1.0)
         mixed = (vocal[:, :min_len] + bg[:, :min_len]) * 0.5
