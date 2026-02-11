@@ -24,7 +24,7 @@
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/yourusername/open-game-dubber.git
+    git clone https://github.com/yuriolive/open-game-dubber.git
     cd open-game-dubber
     ```
 
@@ -32,12 +32,34 @@
     ```bash
     uv sync
     ```
+    
+### Model Setup
+
+Before running the pipeline, you need to download the required AI models (Faster-Whisper, Demucs, etc.). We provide a convenient CLI command for this:
+
+```bash
+uv run dub download
+```
 
 ### Usage
 
-**CLI Batch Mode**:
-```bash
-uv run dub batch --input-dir "path/to/wavs" --output-dir "path/to/output"
+**CLI Commands**:
+
+```text
+ Usage: uv run dub [OPTIONS] COMMAND [ARGS]...
+
+ Open Game Dubber CLI
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --install-completion          Install completion for the current shell.      │
+│ --show-completion             Show completion for the current shell, to copy │
+│                               it or customize the installation.              │
+│ --help                        Show this message and exit.                    │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ download  Download all required AI models (Faster-Whisper, Demucs, etc.)     │
+│ hello     Test command to verify CLI is working.                             │
+╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## Documentation

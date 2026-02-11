@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[project]
+name = "open-game-dubber"
+version = "0.1.0"
+description = "A modular, high-performance Python application for local game audio dubbing."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "faster-whisper>=1.0.0",
+    "ctranslate2>=4.0.0",
+    "torch>=2.4.0",
+    "torchaudio>=2.4.0",
+    "librosa>=0.10.0",
+    "ollama>=0.3.0",
+    "demucs>=4.0.0",
+    "deepfilternet>=0.5.0",
+    "typer>=0.12.0",
+    "gradio>=4.0.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = []
+
+[project.scripts]
+dub = "src.interface.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-mock>=3.15.1",
+    "ruff>=0.15.0",
+]
