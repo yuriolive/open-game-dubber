@@ -4,7 +4,6 @@ import typer
 
 from src.utils.model_manager import download_all_models
 
-
 app = typer.Typer(help="Open Game Dubber CLI")
 
 
