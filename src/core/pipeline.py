@@ -73,7 +73,7 @@ class DubbingPipeline:
                 os.makedirs(os.path.dirname(dub_output_path), exist_ok=True)
 
                 synthesized_path = self.tts.generate_dub(
-                    translated_text, vocal_path, dub_output_path, language=self.target_lang
+                    translated_text, vocal_path, dub_output_path, language=self.target_lang, ref_text=original_text
                 )
                 if not synthesized_path:
                     raise Exception("TTS synthesis failed")

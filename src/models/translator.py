@@ -15,6 +15,22 @@ class OllamaTranslator:
         self.model = model
         self.base_url = base_url
         self.api_url = f"{base_url}/api/generate"
+        self.pull_url = f"{base_url}/api/pull"
+
+    def pull_model(self) -> bool:
+        """
+        Pull the required model via Ollama API.
+        """
+        logger.info(f"Pulling model '{self.model}' via Ollama API...")
+        try:
+            payload = {"model": self.model, "stream": False}
+            response = requests.post(self.pull_url, json=payload, timeout=300)  # Increased timeout for download
+            response.raise_for_status()
+            logger.info(f"Successfully pulled model '{self.model}'")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to pull model '{self.model}' via API: {e}")
+            return False
 
     def translate(self, text: str, target_lang: str, context: Optional[str] = None) -> str:
         """
@@ -42,17 +58,25 @@ class OllamaTranslator:
         try:
             payload = {"model": self.model, "prompt": prompt, "stream": False, "options": {"temperature": 0.3}}
 
-            response = requests.post(self.api_url, json=payload, timeout=30)
+            response = requests.post(self.api_url, json=payload, timeout=120)
+
+            if response.status_code == 404:
+                logger.error(f"Ollama model '{self.model}' not found. Please run 'ollama pull {self.model}'")
+                return text
+
             response.raise_for_status()
 
             result = response.json()
             translated_text = result.get("response", "").strip().strip('"')
 
+            if not translated_text:
+                logger.warning("Ollama returned empty translation. Using original text.")
+                return text
+
+            logger.info(f"Translation successful: {translated_text[:50]}...")
             return translated_text
         except Exception as e:
             logger.error(f"Ollama translation failed: {e}")
-            # Fallback or return original if translation fails?
-            # For now return original to avoid breaking the pipeline, but log the error.
             return text
 
 
