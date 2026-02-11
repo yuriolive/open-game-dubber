@@ -92,7 +92,11 @@ class TTSWrapper:
             # Qwen3TTSModel has a specific method for zero-shot cloning
             # ref_audio can be a path. If ref_text is None, it uses x-vector-only mode.
             wavs, sr = model.generate_voice_clone(
-                text=text, language=language, ref_audio=ref_audio_path, ref_text=ref_text
+                text=text,
+                language=language,
+                ref_audio=ref_audio_path,
+                ref_text=ref_text,
+                x_vector_only_mode=(ref_text is None),
             )
 
             # wavs is typically a list of waveforms (one per text/audio pair)

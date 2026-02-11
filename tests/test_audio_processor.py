@@ -121,9 +121,10 @@ class TestAudioProcessor(unittest.TestCase):
             # Verify subprocess.run call
             self.assertTrue(mock_run.called)
             cmd = mock_run.call_args[0][0]
+            self.assertIn("uv", cmd)
+            self.assertIn("run", cmd)
             self.assertIn("python", cmd)
-            self.assertIn("-m", cmd)
-            self.assertIn("demucs.separate", cmd)
+            self.assertIn("demucs_wrapper.py", cmd[3])
             self.assertIn("--two-stems", cmd)
             self.assertIn("vocals", cmd)
             self.assertIn("-o", cmd)
