@@ -112,9 +112,13 @@ class AudioProcessor:
 
             return output_path if os.path.exists(output_path) else None
         except subprocess.CalledProcessError as e:
-            logger.error(f"DeepFilterNet denoising failed with exit code {e.returncode}")
-            logger.error(f"STDOUT: {e.stdout}")
-            logger.error(f"STDERR: {e.stderr}")
+            if "ModuleNotFoundError" in e.stderr:
+                logger.warning(f"DeepFilterNet unavailable (dependency issue): {e.stderr.strip().splitlines()[-1]}")
+                logger.warning("Continuing with original vocals (no denoising).")
+            else:
+                logger.error(f"DeepFilterNet denoising failed with exit code {e.returncode}")
+                logger.error(f"STDOUT: {e.stdout}")
+                logger.error(f"STDERR: {e.stderr}")
             return None
         except Exception as e:
             logger.error(f"DeepFilterNet denoising failed: {e}")

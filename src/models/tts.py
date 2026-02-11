@@ -63,6 +63,7 @@ class TTSWrapper:
         output_path: str,
         language: str = "Portuguese",
         ref_text: Optional[str] = None,
+        instruct: Optional[str] = None,
     ) -> Optional[str]:
         """
         Generates dubbed audio using voice cloning from reference.
@@ -71,9 +72,11 @@ class TTSWrapper:
             text: The target text to synthesize.
             ref_audio_path: Path to the original vocal clip (reference).
             output_path: Path where the dub should be saved.
-            language: Target language name.
+            language: Target language name (e.g., "Portuguese", "English").
             ref_text: The transcript of the original vocal clip (optional, but
                      improves cloning quality significantly).
+            instruct: Optional instruction to guide voice characteristics
+                     (e.g., "Brazilian Portuguese accent and pronunciation").
         """
         if not text.strip():
             return None
@@ -91,12 +94,14 @@ class TTSWrapper:
 
             # Qwen3TTSModel has a specific method for zero-shot cloning
             # ref_audio can be a path. If ref_text is None, it uses x-vector-only mode.
-            # Use "auto" for language to let the model detect from text (supports all variants)
+            # The instruct parameter should be provided by the LLM translator for accent/dialect guidance
+
             wavs, sr = model.generate_voice_clone(
                 text=text,
-                language="auto",
+                language=language,
                 ref_audio=ref_audio_path,
                 ref_text=ref_text,
+                instruct=instruct,
                 x_vector_only_mode=(ref_text is None),
             )
 

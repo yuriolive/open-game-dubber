@@ -65,15 +65,30 @@ class DubbingPipeline:
                 logger.info(f"Transcription: {original_text}")
 
                 # 4. Translate
-                translated_text = self.translator.translate(original_text, self.target_lang)
+                translation_result = self.translator.translate(original_text, self.target_lang)
+                translated_text = translation_result["text"]
+                tts_instruction = translation_result.get("tts_instruction", "")
                 logger.info(f"Translation: {translated_text}")
+                if tts_instruction:
+                    logger.info(f"TTS instruction: {tts_instruction}")
 
                 # 5. Synthesize Dub
                 dub_output_path = os.path.join(temp_dir, "dubs", filename)
                 os.makedirs(os.path.dirname(dub_output_path), exist_ok=True)
 
+                # Normalize language to base language name for TTS compatibility
+                # E.g., "Brazilian Portuguese" -> "portuguese", "American English" -> "english"
+                base_language = self.target_lang.split()[-1].lower()
+
+                logger.info(f"calling TTS with language='{base_language}' (derived from '{self.target_lang}')")
+
                 synthesized_path = self.tts.generate_dub(
-                    translated_text, vocal_path, dub_output_path, language=self.target_lang, ref_text=original_text
+                    translated_text,
+                    vocal_path,
+                    dub_output_path,
+                    language=base_language,
+                    ref_text=original_text,
+                    instruct=tts_instruction,
                 )
                 if not synthesized_path:
                     raise Exception("TTS synthesis failed")
