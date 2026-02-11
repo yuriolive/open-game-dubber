@@ -55,7 +55,7 @@ class AudioProcessor:
                 "uv",
                 "run",
                 "python",
-                "src/utils/demucs_wrapper.py",
+                os.path.join(os.path.dirname(__file__), "demucs_wrapper.py"),
                 "--two-stems",
                 "vocals",
                 "-o",

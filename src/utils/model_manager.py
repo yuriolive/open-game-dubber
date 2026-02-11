@@ -92,18 +92,19 @@ def download_all_models(output_dir: str = "models", model_size: str = "large-v3-
         logger.error(f"Failed to download Qwen3-TTS model: {e}")
 
     # 5. Ollama models
-    logger.info("Checking Ollama model: llama3.1...")
+    ollama_model = "llama3.1"
+    logger.info(f"Checking Ollama model: {ollama_model}...")
     if OllamaTranslator:
         try:
-            translator = OllamaTranslator(model="llama3.1")
+            translator = OllamaTranslator(model=ollama_model)
             # We use the API directly first as it's more reliable within our environment
             if translator.pull_model():
-                logger.info("Ollama model llama3.1 ready.")
+                logger.info(f"Ollama model {ollama_model} ready.")
             else:
                 # Fallback to CLI if API fails for some reason
-                logger.info("Pulling llama3.1 model via Ollama CLI...")
-                subprocess.run(["ollama", "pull", "llama3.1"], capture_output=True, check=True)
-                logger.info("Ollama model llama3.1 ready.")
+                logger.info(f"Pulling {ollama_model} model via Ollama CLI...")
+                subprocess.run(["ollama", "pull", ollama_model], capture_output=True, check=True)
+                logger.info(f"Ollama model {ollama_model} ready.")
         except (subprocess.CalledProcessError, FileNotFoundError):
             logger.warning(
                 "Ollama command not found and API pull failed. Please ensure Ollama is installed and running."

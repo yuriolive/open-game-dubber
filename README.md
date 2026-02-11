@@ -86,8 +86,6 @@ uv run dub hello
 ## Documentation
 
 - [Product Requirements Document](PRD.md)
-- [Implementation Plan](file:///c:/Users/yuri_/.gemini/antigravity/brain/2777945a-8347-4bb0-9d50-ff106c24af20/implementation_plan.md)
-- [Walkthrough & Integration Guide](file:///c:/Users/yuri_/.gemini/antigravity/brain/2777945a-8347-4bb0-9d50-ff106c24af20/walkthrough.md)
 
 ## License
 

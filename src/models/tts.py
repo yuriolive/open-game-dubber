@@ -91,7 +91,7 @@ class TTSWrapper:
             # wavs is typically a list of waveforms (one per text/audio pair)
             # We take the first one and save it.
             if len(wavs) > 0:
-                sf.write(output_path, wavs[0], sr)
+                sf.write(output_path, wavs[0].cpu().numpy(), sr)
                 logger.info(f"Successfully synthesized audio to {output_path}")
                 return output_path
             else:
