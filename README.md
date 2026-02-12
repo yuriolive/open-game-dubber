@@ -23,14 +23,10 @@ Compare the original English game audio with the locally generated dub:
 </tr>
 <tr>
 <td>
-<audio controls src="docs/artifacts/original_sample.wav">
-  <a href="docs/artifacts/original_sample.wav">Download audio</a>
-</audio>
+[original_sample.wav](https://github.com/user-attachments/files/25247519/original_sample.wav)
 </td>
 <td>
-<audio controls src="docs/artifacts/dubbed_sample.wav">
-  <a href="docs/artifacts/dubbed_sample.wav">Download audio</a>
-</audio>
+[dubbed_sample.wav](https://github.com/user-attachments/files/25247514/dubbed_sample.wav)
 </td>
 </tr>
 </table>
