@@ -16,9 +16,26 @@
 
 Compare the original English game audio with the locally generated dub:
 
-| Original Audio (English) | Dubbed Audio (Portuguese) |
-| :--- | :--- |
-| [Original Clip](docs/artifacts/original_sample.wav) | [Dubbed Clip](docs/artifacts/dubbed_sample.wav) |
+<table>
+<tr>
+<th>Original Audio (English)</th>
+<th>Dubbed Audio (Portuguese)</th>
+</tr>
+<tr>
+<td>
+<audio controls>
+  <source src="docs/artifacts/original_sample.wav" type="audio/wav">
+  Your browser does not support the audio element. <a href="docs/artifacts/original_sample.wav">Download</a>
+</audio>
+</td>
+<td>
+<audio controls>
+  <source src="docs/artifacts/dubbed_sample.wav" type="audio/wav">
+  Your browser does not support the audio element. <a href="docs/artifacts/dubbed_sample.wav">Download</a>
+</audio>
+</td>
+</tr>
+</table>
 
 ## Getting Started
 
