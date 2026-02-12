@@ -17,9 +17,10 @@ class DubbingPipeline:
     Coordinates the end-to-end dubbing flow.
     """
 
-    def __init__(self, output_dir: str, target_lang: str = "Portuguese"):
+    def __init__(self, output_dir: str, target_lang: str = "Portuguese", debug: bool = False):
         self.output_dir = output_dir
         self.target_lang = target_lang
+        self.debug = debug
 
         # Initialize components
         self.stt = FasterWhisperTranscriber()
@@ -43,6 +44,12 @@ class DubbingPipeline:
         try:
             # Use a unique temporary directory for this file processing task
             with tempfile.TemporaryDirectory(dir=self.output_dir, prefix="dub_tmp_") as temp_dir:
+                # 0. Denoise Input (Pre-processing)
+                # Denoising the full input ensures both vocals and background stems are clean.
+                denoised_input_path = os.path.join(temp_dir, "input_clean.wav")
+                logger.info(f"Pre-denoising full input: {filename}")
+                audio_path = self.processor.denoise_audio(audio_path, denoised_input_path) or audio_path
+
                 # 1. Separate Vocals
                 vocal_root = os.path.join(temp_dir, "vocals")
                 separated = self.processor.separate_vocals(audio_path, vocal_root)
@@ -52,11 +59,7 @@ class DubbingPipeline:
                 vocal_path = separated["vocals"]
                 bg_path = separated["background"]
 
-                # 2. Denoise Vocals
-                denoised_vocal_path = os.path.join(temp_dir, "vocals_clean.wav")
-                vocal_path = self.processor.denoise_vocals(vocal_path, denoised_vocal_path) or vocal_path
-
-                # 3. Transcribe
+                # 2. Transcribe
                 segments = self.stt.transcribe(vocal_path)
                 if not segments:
                     raise Exception("Transcription returned no segments")
@@ -64,7 +67,7 @@ class DubbingPipeline:
                 original_text = " ".join([seg["text"] for seg in segments])
                 logger.info(f"Transcription: {original_text}")
 
-                # 4. Translate with duration awareness
+                # 3. Translate with duration awareness
                 vocal_duration = self.processor.get_audio_duration(vocal_path)
                 logger.info(f"Target duration: {vocal_duration:.2f}s")
 
@@ -78,7 +81,7 @@ class DubbingPipeline:
                 if tts_instruction:
                     logger.info(f"TTS instruction: {tts_instruction}")
 
-                # 5. Synthesize Dub
+                # 4. Synthesize Dub
                 dub_output_path = os.path.join(temp_dir, "dubs", filename)
                 os.makedirs(os.path.dirname(dub_output_path), exist_ok=True)
 
@@ -102,7 +105,7 @@ class DubbingPipeline:
                 if not synthesized_path:
                     raise Exception("TTS synthesis failed")
 
-                # 6. Mix with background
+                # 5. Mix with background
                 final_output_path = os.path.join(self.output_dir, filename)
 
                 if bg_path and os.path.exists(bg_path):
@@ -110,7 +113,21 @@ class DubbingPipeline:
                 else:
                     shutil.copy(synthesized_path, final_output_path)
 
-                # 7. Mark success
+                # 5.5 Save intermediate files if debug is enabled
+                if self.debug:
+                    debug_dir = os.path.join(self.output_dir, "debug", filename)
+                    os.makedirs(debug_dir, exist_ok=True)
+                    # Copy everything from the root of temp_dir
+                    for item in os.listdir(temp_dir):
+                        s = os.path.join(temp_dir, item)
+                        d = os.path.join(debug_dir, item)
+                        if os.path.isdir(s):
+                            shutil.copytree(s, d, dirs_exist_ok=True)
+                        else:
+                            shutil.copy2(s, d)
+                    logger.info(f"Intermediate files saved to: {debug_dir}")
+
+                # 6. Mark success
                 self.state.mark_completed(
                     audio_path, {"original_text": original_text, "translated_text": translated_text}
                 )

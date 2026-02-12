@@ -77,14 +77,14 @@ class AudioProcessor:
             logger.error(f"Demucs separation failed: {e}", exc_info=True)
             return None
 
-    def denoise_vocals(self, vocal_path: str, output_path: str) -> Optional[str]:
+    def denoise_audio(self, audio_path: str, output_path: str) -> Optional[str]:
         """
-        Uses DeepFilterNet to clean vocal audio.
+        Uses DeepFilterNet to clean audio files.
         """
-        if not os.path.exists(vocal_path):
+        if not os.path.exists(audio_path):
             return None
 
-        logger.info(f"Denoising vocals: {vocal_path}")
+        logger.info(f"Denoising audio: {audio_path}")
         try:
             # DeepFilterNet typically provides a CLI
             # We use 'uvx' (tool run) to run DeepFilterNet in an isolated environment with compatible torch versions
@@ -104,7 +104,7 @@ class AudioProcessor:
                 "deepFilter",
                 "-m",
                 "DeepFilterNet3",
-                vocal_path,
+                audio_path,
                 "-o",
                 os.path.dirname(output_path),
             ]
@@ -117,7 +117,7 @@ class AudioProcessor:
             )
             logger.info(f"DeepFilterNet output: {result.stdout}")
 
-            base_name = os.path.splitext(os.path.basename(vocal_path))[0]
+            base_name = os.path.splitext(os.path.basename(audio_path))[0]
             out_dir = os.path.dirname(output_path)
 
             # DeepFilterNet usually appends _DeepFilterNet3 to the filename or similar
@@ -134,7 +134,7 @@ class AudioProcessor:
         except subprocess.CalledProcessError as e:
             if "ModuleNotFoundError" in e.stderr:
                 logger.warning(f"DeepFilterNet unavailable (dependency issue): {e.stderr.strip().splitlines()[-1]}")
-                logger.warning("Continuing with original vocals (no denoising).")
+                logger.warning("Continuing with original audio (no denoising).")
             else:
                 logger.error(f"DeepFilterNet denoising failed with exit code {e.returncode}")
                 logger.error(f"STDOUT: {e.stdout}")
@@ -186,11 +186,12 @@ class AudioProcessor:
             else:
                 logger.warning("Unusual channel counts, simple expansion might not work perfectly.")
 
-        min_len = min(vocal.shape[1], bg.shape[1])
+        target_len = bg.shape[1]
 
         # If vocals are significantly longer, time-stretch (speed up) to fit
-        if vocal.shape[1] > bg.shape[1]:
-            rate = vocal.shape[1] / bg.shape[1]
+        if vocal.shape[1] > target_len:
+            # Use max(..., 1) to prevent ZeroDivisionError if background is empty
+            rate = vocal.shape[1] / max(target_len, 1)
 
             # Safety check: If we need to speed up by more than 25% (1.25x), just warn
             if rate > 1.25:
@@ -203,12 +204,17 @@ class AudioProcessor:
                 stretched_vocal_np = librosa.effects.time_stretch(vocal_np, rate=rate)
                 vocal = torch.from_numpy(stretched_vocal_np).float().to(self.device)
                 logger.info(f"Time-stretched vocals by {rate:.2f}x to sync with background.")
-                min_len = bg.shape[1]  # Update min_len after stretching
             except Exception as e:
                 logger.error(f"Time stretch failed: {e}. Falling back to truncation.")
+                vocal = vocal[:, :target_len]
+        elif vocal.shape[1] < target_len:
+            # Pad vocals with silence to match background duration
+            padding_len = target_len - vocal.shape[1]
+            vocal = torch.nn.functional.pad(vocal, (0, padding_len))
+            logger.info(f"Padded vocals with {padding_len} silence samples to match background.")
 
         # Prevent digital clipping by reducing gain (simple additive mix can exceed 1.0)
-        mixed = (vocal[:, :min_len] + bg[:, :min_len]) * 0.5
+        mixed = (vocal[:, :target_len] + bg[:, :target_len]) * 0.5
 
         # Use soundfile for saving to avoid torchaudio/torchcodec issues on Windows
         data = mixed.cpu().detach().numpy().T
