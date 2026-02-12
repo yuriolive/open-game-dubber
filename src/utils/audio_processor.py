@@ -155,10 +155,23 @@ class AudioProcessor:
             logger.error(f"Failed to get audio duration for {audio_path}: {e}")
             return 0.0
 
+    def _trim_silence(self, audio: torch.Tensor, sr: int, top_db: int = 30) -> torch.Tensor:
+        """
+        Trims leading and trailing silence from a torch tensor using librosa.
+        """
+        try:
+            # librosa expects (n_samples,) or (n_channels, n_samples)
+            audio_np = audio.cpu().detach().numpy()
+            trimmed_np, _ = librosa.effects.trim(audio_np, top_db=top_db)
+            return torch.from_numpy(trimmed_np).float().to(self.device)
+        except Exception as e:
+            logger.warning(f"Silence trimming failed: {e}. Returning original audio.")
+            return audio
+
     def mix_audio(self, vocal_path: str, background_path: str, output_path: str):
         """
         Combines vocals and background tracks using torchaudio.
-        Optimizes for quality by using the highest available sample rate.
+        Optimizes for quality by using the highest available sample rate and avoiding robotic artifacts.
         """
         if not torch or not torchaudio:
             logger.error("torch/torchaudio not found. Mixing is not possible without these dependencies.")
@@ -175,13 +188,17 @@ class AudioProcessor:
         vocal = torch.from_numpy(vocal_data.T).float().to(self.device)
         bg = torch.from_numpy(bg_data.T).float().to(self.device)
 
-        # Resample to highest sample rate if needed
+        # 1. Resample to highest sample rate first
         if sr_v != target_sr:
             resampler = torchaudio.transforms.Resample(sr_v, target_sr).to(self.device)
             vocal = resampler(vocal)
         if sr_b != target_sr:
             resampler = torchaudio.transforms.Resample(sr_b, target_sr).to(self.device)
             bg = resampler(bg)
+
+        # 2. Trim silence from vocals to eliminate unnecessary stretching
+        # This is a key SOTA-inspired step: removing dead air often brings duration within target.
+        vocal = self._trim_silence(vocal, target_sr)
 
         # Handle channel mismatch (e.g., mono vocals + stereo background)
         if vocal.shape[0] != bg.shape[0]:
@@ -194,19 +211,19 @@ class AudioProcessor:
                 logger.warning("Unusual channel counts, simple expansion might not work perfectly.")
 
         target_len = bg.shape[1]
+        vocal_len = vocal.shape[1]
 
-        # If vocals are significantly longer, time-stretch (speed up) to fit
-        if vocal.shape[1] > target_len:
-            # Use max(..., 1) to prevent ZeroDivisionError if background is empty
-            rate = vocal.shape[1] / max(target_len, 1)
+        # 3. Synchronize duration
+        # We only time-stretch if the trimmed vocal is EXPLICITLY longer than the background
+        # and the difference is significant (>100ms). Otherwise, we prefer padding/truncation.
+        diff_ms = abs(vocal_len - target_len) / target_sr * 1000
 
-            # Safety check: If we need to speed up by more than 25% (1.25x), just warn
+        if vocal_len > target_len and diff_ms > 100:
+            rate = vocal_len / max(target_len, 1)
             if rate > 1.25:
                 logger.warning(f"High time-stretch rate detected: {rate:.2f}x. Audio may sound robotic.")
 
             try:
-                # librosa.effects.time_stretch preserves pitch!
-                # Input must be (n_channels, n_samples) for multi-channel
                 vocal_np = vocal.cpu().detach().numpy()
                 stretched_vocal_np = librosa.effects.time_stretch(vocal_np, rate=rate)
                 vocal = torch.from_numpy(stretched_vocal_np).float().to(self.device)
@@ -214,20 +231,20 @@ class AudioProcessor:
             except Exception as e:
                 logger.error(f"Time stretch failed: {e}. Falling back to truncation.")
                 vocal = vocal[:, :target_len]
-        elif vocal.shape[1] < target_len:
+        elif vocal_len < target_len:
             # Pad vocals with silence to match background duration
-            padding_len = target_len - vocal.shape[1]
+            padding_len = target_len - vocal_len
             vocal = torch.nn.functional.pad(vocal, (0, padding_len))
-            logger.info(f"Padded vocals with {padding_len} silence samples to match background.")
+            logger.info(
+                f"Padded vocals with {padding_len} silence samples (approx {diff_ms:.0f}ms) to match background."
+            )
 
         # Ensure same final length for mixing
         vocal = vocal[:, :target_len]
         bg = bg[:, :target_len]
 
-        # Improved Mixing logic:
-        # Instead of fixed 0.5 attenuation which makes it quiet,
-        # we sum and then normalize to peak if it exceeds 1.0, preserving loudness.
-        # We also give a slight priority to vocals (1.0) and lower background slightly (0.8)
+        # 4. Sum and then normalize to peak
+        # Give slight priority to vocals (1.0) and lower background slightly (0.8)
         mixed = vocal + (bg * 0.8)
 
         # Simple peak normalization if clipping occurs

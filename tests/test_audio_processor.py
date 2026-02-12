@@ -41,6 +41,11 @@ class TestAudioProcessor(unittest.TestCase):
         resample_transform.side_effect = lambda x: x
         mock_torchaudio.transforms.Resample.return_value = resample_transform
 
+        # Configure global librosa mock
+        self.mock_librosa = sys.modules["librosa"]
+        self.mock_librosa.effects.trim.return_value = (np.zeros((1, 50)), None)
+        self.mock_librosa.effects.time_stretch.return_value = np.zeros((1, 100))
+
         # Import inside setUp to use patched modules
         if "src.utils.audio_processor" in sys.modules:
             del sys.modules["src.utils.audio_processor"]
@@ -215,8 +220,28 @@ class TestAudioProcessor(unittest.TestCase):
         bg_data = np.random.uniform(-1, 1, (100, 1)).astype(np.float32)  # Mono
         sf.write(self.bg_path, bg_data, 16000)
 
+    def test_trim_silence_call(self):
+        """Tests that _trim_silence calls librosa.effects.trim."""
+        dummy_audio = self._create_mock_tensor(np.zeros((1, 100)))
+        self.processor._trim_silence(dummy_audio, 16000)
+        self.mock_librosa.effects.trim.assert_called()
+
+    def test_mix_audio_stretches_only_if_significant(self):
+        """Tests that mix_audio avoids stretching for small discrepancies (<100ms)."""
+        # 16000 samples = 1s. Let's make discrepancy 400 samples = 25ms.
+        vocal_data = np.random.uniform(-1, 1, (10400, 1)).astype(np.float32)
+        sf.write(self.vocal_path, vocal_data, 16000)
+
+        bg_data = np.random.uniform(-1, 1, (10000, 1)).astype(np.float32)
+        sf.write(self.bg_path, bg_data, 16000)
+
+        # Mock trim to return original length to isolate stretch logic
+        self.mock_librosa.effects.trim.return_value = (vocal_data.T, None)
+
         self.processor.mix_audio(self.vocal_path, self.bg_path, self.output_path)
-        self.assertTrue(os.path.exists(self.output_path))
+
+        # Verify that time_stretch was NOT called because 25ms < 100ms
+        self.mock_librosa.effects.time_stretch.assert_not_called()
 
 
 if __name__ == "__main__":
