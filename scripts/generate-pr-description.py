@@ -15,9 +15,11 @@ def get_pr_diff():
     if not re.match(r"^[a-zA-Z0-9\-\_\/]+$", base_ref):
         raise ValueError(f"Invalid GITHUB_BASE_REF: {base_ref}")
 
-    subprocess.run(["git", "fetch", "origin", base_ref], check=True)
+    subprocess.run(["git", "fetch", "origin", "--", base_ref], check=True)
     # Get the diff
-    result = subprocess.run(["git", "diff", f"origin/{base_ref}...HEAD"], capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        ["git", "diff", "--", f"origin/{base_ref}...HEAD"], capture_output=True, text=True, check=True
+    )
     return result.stdout
 
 
