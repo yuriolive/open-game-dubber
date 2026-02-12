@@ -68,6 +68,7 @@ class DubbingPipeline:
                 translation_result = self.translator.translate(original_text, self.target_lang)
                 translated_text = translation_result["text"]
                 tts_instruction = translation_result.get("tts_instruction", "")
+                target_language_response = translation_result.get("target_language", "")
                 logger.info(f"Translation: {translated_text}")
                 if tts_instruction:
                     logger.info(f"TTS instruction: {tts_instruction}")
@@ -77,10 +78,13 @@ class DubbingPipeline:
                 os.makedirs(os.path.dirname(dub_output_path), exist_ok=True)
 
                 # Normalize language to base language name for TTS compatibility
-                # E.g., "Brazilian Portuguese" -> "portuguese", "American English" -> "english"
-                base_language = self.target_lang.split()[-1].lower()
-
-                logger.info(f"calling TTS with language='{base_language}' (derived from '{self.target_lang}')")
+                if target_language_response:
+                    base_language = target_language_response
+                    logger.info(f"Using LLM-provided base language: '{base_language}'")
+                else:
+                    # Fallback to simple split if LLM fails to return target_language
+                    base_language = self.target_lang.split()[-1].lower()
+                    logger.warning(f"LLM did not return target_language. Falling back to heuristic: '{base_language}'")
 
                 synthesized_path = self.tts.generate_dub(
                     translated_text,
