@@ -16,6 +16,9 @@
 
 Compare the original English game audio with the locally generated dub:
 
+[original_sample.wav](https://github.com/user-attachments/files/25247519/original_sample.wav)
+
+
 <table>
 <tr>
 <th>Original Audio (English)</th>
@@ -23,7 +26,6 @@ Compare the original English game audio with the locally generated dub:
 </tr>
 <tr>
 <td>
-[original_sample.wav](https://github.com/user-attachments/files/25247519/original_sample.wav)
 </td>
 <td>
 [dubbed_sample.wav](https://github.com/user-attachments/files/25247514/dubbed_sample.wav)
