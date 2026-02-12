@@ -18,17 +18,27 @@ Current solutions for game dubbing often suffer from:
 - **Local-First**: 100% offline capability for privacy and zero operational cost.
 
 ### In-Scope
-- Batch processing of WAV files.
+- Batch processing of audio files in common formats: **WAV, MP3, OGG, FLAC, M4A**.
+- **Audio Classification**: Auto-detect audio type (Music, Ambiance, Cutscene, SFX, Voice) and intelligently skip non-voice files to avoid unnecessary processing.
+- **Speaker Detection**: Identify if voice audio contains single or multiple speakers for intelligent processing decisions.
 - Speech-to-Text (STT) via Faster-Whisper.
 - Text translation via local LLM (Ollama).
 - Text-to-Speech (TTS) & Voice Cloning via Qwen3-TTS (primary) and Fish Speech (fallback).
 - Audio post-processing (normalization, format conversion).
 - CLI and simple GUI interfaces.
 
+### Future Enhancements
+- **Game Audio Package Support**: Extract and process audio from industry-standard formats:
+  - **Wwise**: `.BNK` (SoundBanks), `.PCK` (media packages), `.WEM` (encoded audio)
+  - **FMOD**: `.BANK` (unified banks), `.FSB` (sample banks)
+  - **Engine-specific**: `.PAK` (Unreal), Unity `.ASSET`/`.SAB`
+  - This will enable direct dubbing from game files without manual extraction.
+
 ### Out-of-Scope (for v1)
 - Real-time in-game overlay dubbing.
 - Cloud-based API integration (except optional fallbacks).
-- Complex multi-speaker separation (diarization is a future enhancement).
+- Full speaker diarization and separation (basic speaker count detection is in-scope; advanced multi-speaker separation is a future enhancement).
+- Game audio package extraction (Wwise/FMOD formats - planned for v2).
 
 ## 4. Technical Architecture
 ### Core Stack
@@ -46,13 +56,14 @@ Current solutions for game dubbing often suffer from:
 | **Fallback TTS** | **Fish Speech V1.6** | Secondary. Ultra-low latency, robust generalization, highly efficient DualAR arch. |
 
 ### Pipeline Workflow
-1.  **Input**: Load source audio (WAV).
-2.  **Audio Pre-processing**: Apply **Demucs** to separate vocals from background SFX/Music. Apply **DeepFilterNet** to denoise vocals for better STT/Cloning.
-3.  **STT**: Transcribe cleaned English vocals to text.
-4.  **Translate**: LLM converts source text to target language (Context-aware prompting).
-5.  **Synthesis**: Generate audio using reference voice (Voice Cloning).
-6.  **Post-Process**: Mix new vocals with extracted background. Normalize, trim, match format (24kHz mono).
-7.  **Output**: Save dubbed file & metadata.
+1.  **Input**: Load source audio (supports WAV, MP3, OGG, FLAC, M4A - auto-converted to WAV internally for processing).
+2.  **Audio Classification**: Analyze audio to detect type (Music, Ambiance, Cutscene, SFX, Voice). Detect speaker count (single/multiple). Skip to output if non-voice content detected.
+3.  **Audio Pre-processing**: Apply **Demucs** to separate vocals from background SFX/Music. Apply **DeepFilterNet** to denoise vocals for better STT/Cloning.
+4.  **STT**: Transcribe cleaned English vocals to text.
+5.  **Translate**: LLM converts source text to target language (Context-aware prompting).
+6.  **Synthesis**: Generate audio using reference voice (Voice Cloning).
+7.  **Post-Process**: Mix new vocals with extracted background. Normalize, trim, match format (24kHz mono).
+8.  **Output**: Save dubbed file & metadata (including classification tag).
 
 ## 5. Hardware Optimization
 Target System: **12GB VRAM**, **12c/24t**.

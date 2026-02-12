@@ -26,9 +26,15 @@ Create a robust project structure to support modular development.
 - Implement `FasterWhisperTranscriber` class.
 - Optimize for `large-v3-turbo` on GPU.
 #### [NEW] `src/utils/audio_processor.py`
+- Implement `AudioClassifier` class.
+- Auto-detect audio type: Music, Ambiance, Cutscene, SFX, Voice using spectral analysis and ML-based classification.
+- Detect speaker count (single vs. multiple speakers) for voice audio using simple diarization techniques.
+- Return classification confidence scores to intelligently skip non-voice files.
 - Implement `AudioCleaner` class.
+- Support multiple input formats (WAV, MP3, OGG, FLAC, M4A) with automatic conversion to WAV for processing.
 - Integrate `Demucs` for splitting (keep background, discard original voice).
 - Integrate `DeepFilterNet` for cleaning reference audio.
+- **Note**: Future versions will support extracting audio from game package formats (Wwise `.BNK`/`.PCK`, FMOD `.BANK`, etc.) - see PRD for details.
 #### [NEW] `src/models/translator.py`
 - Implement `OllamaTranslator` class.
 - Setup prompt templates for game dialogue style (configurable target language).
@@ -37,6 +43,7 @@ Create a robust project structure to support modular development.
 - Handle voice cloning logic (reference audio loading).
 #### [NEW] `src/core/pipeline.py`
 - Implement `DubbingPipeline` class.
+- Integrate audio classification step to filter non-voice files before expensive processing.
 - Manage multiprocessing pool and GPU job queue.
 #### [NEW] `src/core/state_manager.py`
 - Implement `StateManager` class.
