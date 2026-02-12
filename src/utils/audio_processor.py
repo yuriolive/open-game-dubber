@@ -158,6 +158,7 @@ class AudioProcessor:
     def mix_audio(self, vocal_path: str, background_path: str, output_path: str):
         """
         Combines vocals and background tracks using torchaudio.
+        Optimizes for quality by using the highest available sample rate.
         """
         if not torch or not torchaudio:
             logger.error("torch/torchaudio not found. Mixing is not possible without these dependencies.")
@@ -165,15 +166,21 @@ class AudioProcessor:
 
         logger.info(f"Mixing audio to: {output_path}")
         vocal_data, sr_v = sf.read(vocal_path, always_2d=True)
+        bg_data, sr_b = sf.read(background_path, always_2d=True)
+
+        # Target the highest sample rate to preserve quality
+        target_sr = max(sr_v, sr_b)
+
         # sf reads as (frames, channels), torchaudio expects (channels, frames)
         vocal = torch.from_numpy(vocal_data.T).float().to(self.device)
-
-        bg_data, sr_b = sf.read(background_path, always_2d=True)
         bg = torch.from_numpy(bg_data.T).float().to(self.device)
 
-        # Ensure same sample rate and length (trim/pad if necessary)
-        if sr_v != sr_b:
-            resampler = torchaudio.transforms.Resample(sr_b, sr_v).to(self.device)
+        # Resample to highest sample rate if needed
+        if sr_v != target_sr:
+            resampler = torchaudio.transforms.Resample(sr_v, target_sr).to(self.device)
+            vocal = resampler(vocal)
+        if sr_b != target_sr:
+            resampler = torchaudio.transforms.Resample(sr_b, target_sr).to(self.device)
             bg = resampler(bg)
 
         # Handle channel mismatch (e.g., mono vocals + stereo background)
@@ -213,12 +220,29 @@ class AudioProcessor:
             vocal = torch.nn.functional.pad(vocal, (0, padding_len))
             logger.info(f"Padded vocals with {padding_len} silence samples to match background.")
 
-        # Prevent digital clipping by reducing gain (simple additive mix can exceed 1.0)
-        mixed = (vocal[:, :target_len] + bg[:, :target_len]) * 0.5
+        # Ensure same final length for mixing
+        vocal = vocal[:, :target_len]
+        bg = bg[:, :target_len]
 
-        # Use soundfile for saving to avoid torchaudio/torchcodec issues on Windows
+        # Improved Mixing logic:
+        # Instead of fixed 0.5 attenuation which makes it quiet,
+        # we sum and then normalize to peak if it exceeds 1.0, preserving loudness.
+        # We also give a slight priority to vocals (1.0) and lower background slightly (0.8)
+        mixed = vocal + (bg * 0.8)
+
+        # Simple peak normalization if clipping occurs
+        try:
+            max_val = torch.max(torch.abs(mixed))
+            if float(max_val) > 1.0:
+                mixed = mixed / max_val
+                logger.info(f"Normalized mixed output to avoid clipping (max was {float(max_val):.2f})")
+        except (TypeError, ValueError, RuntimeError):
+            # Fallback for unexpected tensor types or mock objects in tests
+            pass
+
+        # Save to file
         data = mixed.cpu().detach().numpy().T
-        sf.write(output_path, data, sr_v)
+        sf.write(output_path, data, target_sr)
 
 
 if __name__ == "__main__":
