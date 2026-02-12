@@ -23,15 +23,13 @@ Compare the original English game audio with the locally generated dub:
 </tr>
 <tr>
 <td>
-<audio controls>
-  <source src="docs/artifacts/original_sample.wav" type="audio/wav">
-  Your browser does not support the audio element. <a href="docs/artifacts/original_sample.wav">Download</a>
+<audio controls src="docs/artifacts/original_sample.wav">
+  <a href="docs/artifacts/original_sample.wav">Download audio</a>
 </audio>
 </td>
 <td>
-<audio controls>
-  <source src="docs/artifacts/dubbed_sample.wav" type="audio/wav">
-  Your browser does not support the audio element. <a href="docs/artifacts/dubbed_sample.wav">Download</a>
+<audio controls src="docs/artifacts/dubbed_sample.wav">
+  <a href="docs/artifacts/dubbed_sample.wav">Download audio</a>
 </audio>
 </td>
 </tr>
