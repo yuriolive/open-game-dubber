@@ -51,6 +51,7 @@ def dub_batch(
     output_dir: str = typer.Option("output", help="Directory to save dubbed files"),
     target_lang: str = typer.Option("Portuguese", help="Target language for dubbing"),
     limit: int = typer.Option(None, help="Limit the number of files to process"),
+    debug: bool = typer.Option(False, "--debug", help="Save intermediate files for debugging"),
 ):
     """
     Batch process all WAV files in a directory.
@@ -71,7 +72,7 @@ def dub_batch(
         files = files[:limit]
 
     typer.echo(f"Starting batch process for {len(files)} files...")
-    pipeline = DubbingPipeline(output_dir, target_lang)
+    pipeline = DubbingPipeline(output_dir, target_lang, debug=debug)
 
     for file_path in tqdm(files, desc="Dubbing Clips"):
         pipeline.process_file(file_path)
