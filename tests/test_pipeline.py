@@ -72,7 +72,10 @@ class TestDubbingPipeline(unittest.TestCase):
         }
         self.pipeline.processor.denoise_vocals.return_value = "temp/vocals_clean.wav"
         self.pipeline.stt.transcribe.return_value = [{"text": "Hello world"}]
-        self.pipeline.translator.translate.return_value = "Olá mundo"
+        self.pipeline.translator.translate.return_value = {
+            "text": "Olá mundo",
+            "tts_instruction": "Brazilian Portuguese accent and pronunciation",
+        }
         self.pipeline.tts.generate_dub.return_value = "temp/dub.wav"
 
         # Ensure os.path.exists returns True so we enter the mix_audio branch
@@ -117,7 +120,7 @@ class TestDubbingPipeline(unittest.TestCase):
         self.pipeline.processor.denoise_vocals.return_value = None
 
         self.pipeline.stt.transcribe.return_value = [{"text": "Hello"}]
-        self.pipeline.translator.translate.return_value = "Olá"
+        self.pipeline.translator.translate.return_value = {"text": "Olá", "tts_instruction": ""}
         self.pipeline.tts.generate_dub.return_value = "temp/dub.wav"
 
         mock_temp_dir.return_value.__enter__.return_value = "temp_dir_path"

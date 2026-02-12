@@ -13,13 +13,15 @@ class TestOllamaTranslator(unittest.TestCase):
         # Mock response from requests
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"response": "Hola mundo"}
+        mock_response.json.return_value = {"response": '{"text": "Hola mundo", "tts_instruction": "Spanish accent"}'}
         mock_post.return_value = mock_response
 
         text = 'Hello "world"'
         result = self.translator.translate(text, "Spanish")
 
-        self.assertEqual(result, "Hola mundo")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result["text"], "Hola mundo")
+        self.assertEqual(result["tts_instruction"], "Spanish accent")
 
         # Verify the prompt contains our unique delimiters
         args, kwargs = mock_post.call_args

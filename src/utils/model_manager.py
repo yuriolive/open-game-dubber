@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 
 # Try imports, handle gracefully if not installed
 try:
@@ -11,6 +12,11 @@ try:
     from demucs.pretrained import get_model as get_demucs_model
 except ImportError:
     get_demucs_model = None
+
+try:
+    from src.models.translator import OllamaTranslator
+except ImportError:
+    OllamaTranslator = None
 
 try:
     # DeepFilterNet handles downloads internally usually
@@ -62,9 +68,51 @@ def download_all_models(output_dir: str = "models", model_size: str = "large-v3-
     else:
         logger.warning("demucs library not found. Skipping download.")
 
-    # 3. DeepFilterNet (downloads on first run usually, but we can try to trigger it)
-    # DeepFilterNet specific download logic might be needed if it doesn't expose a clean API
+    # 3. DeepFilterNet (downloads on first run usually)
     logger.info("DeepFilterNet models are typically downloaded on first use.")
+
+    # 4. Qwen3-TTS (downloads from HuggingFace)
+    logger.info("Checking Qwen3-TTS model...")
+    try:
+        import torch
+        from qwen_tts import Qwen3TTSModel
+
+        model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+        logger.info(f"Downloading/Verifying Qwen3-TTS model: {model_id}...")
+        # This triggers download to HF cache
+        Qwen3TTSModel.from_pretrained(
+            model_id,
+            device_map="cpu",  # Use CPU for download to avoid VRAM issues during prep
+            torch_dtype=torch.float32,
+        )
+        logger.info("Qwen3-TTS model ready.")
+    except ImportError:
+        logger.warning("qwen-tts library not installed. Skipping model download.")
+    except Exception as e:
+        logger.error(f"Failed to download Qwen3-TTS model: {e}")
+
+    # 5. Ollama models
+    ollama_model = "llama3.1"
+    logger.info(f"Checking Ollama model: {ollama_model}...")
+    if OllamaTranslator:
+        try:
+            translator = OllamaTranslator(model=ollama_model)
+            # We use the API directly first as it's more reliable within our environment
+            if translator.pull_model():
+                logger.info(f"Ollama model {ollama_model} ready.")
+            else:
+                # Fallback to CLI if API fails for some reason
+                logger.info(f"Pulling {ollama_model} model via Ollama CLI...")
+                subprocess.run(["ollama", "pull", ollama_model], capture_output=True, check=True)
+                logger.info(f"Ollama model {ollama_model} ready.")
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            logger.warning(
+                "Ollama command not found and API pull failed. Please ensure Ollama is installed and running."
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error pulling Ollama model: {e}")
+    else:
+        logger.warning("OllamaTranslator class not found. Skipping Ollama model download.")
 
     logger.info("All model downloads completed (or attempted).")
 

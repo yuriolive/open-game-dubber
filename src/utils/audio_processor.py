@@ -55,8 +55,7 @@ class AudioProcessor:
                 "uv",
                 "run",
                 "python",
-                "-m",
-                "demucs.separate",
+                os.path.join(os.path.dirname(__file__), "demucs_wrapper.py"),
                 "--two-stems",
                 "vocals",
                 "-o",
@@ -86,9 +85,31 @@ class AudioProcessor:
 
         logger.info(f"Denoising vocals: {vocal_path}")
         try:
-            # DeepFilterNet typically provides a CLI 'df-process'
+            # DeepFilterNet typically provides a CLI
+            # We use 'uvx' (tool run) to run DeepFilterNet in an isolated environment with compatible torch versions
+            # This bypasses the conflict between DeepFilterNet and torchaudio 2.8+ in the main project
+            cmd = [
+                "uvx",
+                "--python",
+                "3.12",
+                "--from",
+                "deepfilternet",
+                "--with",
+                "torch==2.5.1",
+                "--with",
+                "torchaudio==2.5.1",
+                "--with",
+                "soundfile",
+                "deepFilter",
+                "-m",
+                "DeepFilterNet3",
+                vocal_path,
+                "-o",
+                os.path.dirname(output_path),
+            ]
+            logger.info(f"Running DeepFilterNet via uvx: {' '.join(cmd)}")
             result = subprocess.run(
-                ["df-process", "--", vocal_path, "-o", os.path.dirname(output_path)],
+                cmd,
                 check=True,
                 capture_output=True,
                 text=True,
@@ -110,9 +131,13 @@ class AudioProcessor:
 
             return output_path if os.path.exists(output_path) else None
         except subprocess.CalledProcessError as e:
-            logger.error(f"DeepFilterNet denoising failed with exit code {e.returncode}")
-            logger.error(f"STDOUT: {e.stdout}")
-            logger.error(f"STDERR: {e.stderr}")
+            if "ModuleNotFoundError" in e.stderr:
+                logger.warning(f"DeepFilterNet unavailable (dependency issue): {e.stderr.strip().splitlines()[-1]}")
+                logger.warning("Continuing with original vocals (no denoising).")
+            else:
+                logger.error(f"DeepFilterNet denoising failed with exit code {e.returncode}")
+                logger.error(f"STDOUT: {e.stdout}")
+                logger.error(f"STDERR: {e.stderr}")
             return None
         except Exception as e:
             logger.error(f"DeepFilterNet denoising failed: {e}")

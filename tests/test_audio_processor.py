@@ -121,9 +121,10 @@ class TestAudioProcessor(unittest.TestCase):
             # Verify subprocess.run call
             self.assertTrue(mock_run.called)
             cmd = mock_run.call_args[0][0]
+            self.assertIn("uv", cmd)
+            self.assertIn("run", cmd)
             self.assertIn("python", cmd)
-            self.assertIn("-m", cmd)
-            self.assertIn("demucs.separate", cmd)
+            self.assertIn("demucs_wrapper.py", cmd[3])
             self.assertIn("--two-stems", cmd)
             self.assertIn("vocals", cmd)
             self.assertIn("-o", cmd)
@@ -155,8 +156,17 @@ class TestAudioProcessor(unittest.TestCase):
             # Verify the call pattern
             args, kwargs = mock_run.call_args
             cmd_list = args[0]
-            self.assertEqual(cmd_list[0], "df-process")
-            self.assertEqual(cmd_list[1], "--")
+            self.assertEqual(cmd_list[0], "uvx")
+            self.assertEqual(cmd_list[1], "--python")
+            self.assertEqual(cmd_list[2], "3.12")
+            self.assertEqual(cmd_list[3], "--from")
+            self.assertEqual(cmd_list[4], "deepfilternet")
+            self.assertIn("--with", cmd_list)
+            self.assertIn("torch==2.5.1", cmd_list)
+            self.assertIn("soundfile", cmd_list)
+            self.assertIn("deepFilter", cmd_list)
+            self.assertIn("-m", cmd_list)
+            self.assertIn("DeepFilterNet3", cmd_list)
             self.assertIn(vocal_path, cmd_list)
 
 

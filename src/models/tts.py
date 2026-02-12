@@ -2,45 +2,81 @@ import logging
 import os
 from typing import Optional
 
-import numpy as np
 import soundfile as sf
 
 try:
     import torch
-    # Hypothetical Qwen3-TTS implementation based on PRD
-    # In a real scenario, this would be the actual import for the model
-    # from qwen_tts import Qwen3TTS
+    import torchaudio
+    from qwen_tts import Qwen3TTSModel
 except ImportError:
     torch = None
+    torchaudio = None
+    Qwen3TTSModel = None
 
 logger = logging.getLogger(__name__)
 
 
 class TTSWrapper:
     """
-    Handles dubbing synthesis using voice cloning.
+    Handles dubbing synthesis using zero-shot voice cloning with Qwen3-TTS.
     """
 
-    def __init__(self, model_id: str = "Qwen/Qwen3-TTS-1.7B"):
+    def __init__(self, model_id: str = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"):
         self.model_id = model_id
         self.device = "cuda" if torch and torch.cuda.is_available() else "cpu"
         self._model = None
+        self._model_load_failed = False
 
     @property
     def model(self):
         """
-        Lazy load the TTS model.
+        Lazy load the Qwen3TTS model.
         """
-        if self._model is None:
-            logger.info(f"Loading TTS model: {self.model_id} on {self.device}...")
-            # Placeholder for actual model loading logic
-            # self._model = Qwen3TTS.from_pretrained(self.model_id).to(self.device)
-            self._model = "READY"  # Mock for now
+        if self._model is None and not self._model_load_failed:
+            if not Qwen3TTSModel:
+                logger.error("qwen-tts library not installed or import failed.")
+                self._model_load_failed = True
+                return None
+
+            logger.info(f"Loading Qwen3 TTS model: {self.model_id} on {self.device}...")
+            try:
+                # Qwen3-TTS recommends bfloat16 for CUDA if supported
+                if self.device == "cuda":
+                    dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+                else:
+                    dtype = torch.float32
+
+                self._model = Qwen3TTSModel.from_pretrained(
+                    self.model_id,
+                    device_map=self.device,
+                    dtype=dtype,
+                )
+            except Exception as e:
+                logger.error(f"Failed to load TTS model: {e}")
+                self._model_load_failed = True
         return self._model
 
-    def generate_dub(self, text: str, ref_audio_path: str, output_path: str, language: str = "pt") -> Optional[str]:
+    def generate_dub(
+        self,
+        text: str,
+        ref_audio_path: str,
+        output_path: str,
+        language: str = "Portuguese",
+        ref_text: Optional[str] = None,
+        instruct: Optional[str] = None,
+    ) -> Optional[str]:
         """
         Generates dubbed audio using voice cloning from reference.
+
+        Args:
+            text: The target text to synthesize.
+            ref_audio_path: Path to the original vocal clip (reference).
+            output_path: Path where the dub should be saved.
+            language: Target language name (e.g., "Portuguese", "English").
+            ref_text: The transcript of the original vocal clip (optional, but
+                     improves cloning quality significantly).
+            instruct: Optional instruction to guide voice characteristics
+                     (e.g., "Brazilian Portuguese accent and pronunciation").
         """
         if not text.strip():
             return None
@@ -49,28 +85,36 @@ class TTSWrapper:
             logger.error(f"Reference audio not found: {ref_audio_path}")
             return None
 
-        logger.info(f"Generating dub for: {text[:30]}... using {ref_audio_path}")
+        logger.info(f"Generating dub for: {text[:30]}... using reference: {ref_audio_path}")
 
         try:
-            # Mock synthesis logic
-            # With Qwen3-TTS, it would look something like:
-            # audio = self.model.synthesize(text, ref_audio=ref_audio_path, lang=language)
-            # torchaudio.save(output_path, audio, 24000)
+            model = self.model
+            if model is None:
+                return None
 
-            # For now, we simulate success
-            # In production, this would call the actual Qwen3 or Fish Speech backend
-            if self.model == "READY":
-                logger.info("Successfully synthesized audio (Mock).")
-                # Create a simple valid WAV file (silence) for testing pipeline
-                # 1 second of silence at 24kHz
-                sr = 24000
-                duration = 1.0
-                data = np.zeros(int(sr * duration))
-                sf.write(output_path, data, sr)
+            # Qwen3TTSModel has a specific method for zero-shot cloning
+            # ref_audio can be a path. If ref_text is None, it uses x-vector-only mode.
+            # The instruct parameter should be provided by the LLM translator for accent/dialect guidance
 
+            wavs, sr = model.generate_voice_clone(
+                text=text,
+                language=language,
+                ref_audio=ref_audio_path,
+                ref_text=ref_text,
+                instruct=instruct,
+                x_vector_only_mode=(ref_text is None),
+            )
+
+            # wavs is typically a list of waveforms (one per text/audio pair)
+            # We take the first one and save it.
+            if len(wavs) > 0:
+                sf.write(output_path, wavs[0], sr)
+                logger.info(f"Successfully synthesized audio to {output_path}")
                 return output_path
+            else:
+                logger.error("TTS model returned no audio.")
+                return None
 
-            return None
         except Exception as e:
             logger.error(f"TTS synthesis failed: {e}")
             return None

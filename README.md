@@ -7,65 +7,85 @@
 - **Local-First**: Runs entirely offline for privacy and zero cost.
 - **SOTA AI Models**:
     - **STT**: Faster-Whisper (large-v3-turbo)
-    - **Translation**: Ollama (Llama-3.1 / Qwen3)
-    - **TTS**: Qwen3-TTS (High Quality) & Fish Speech (Low Latency)
-    - **Audio Processing**: Demucs (Source Separation) & DeepFilterNet (Denoising)
+    - **Translation**: Ollama (Llama-3.1)
+    - **TTS**: Qwen3-TTS-12Hz (High Quality Zero-Shot Voice Cloning)
+    - **Audio Processing**: Demucs (Source Separation)
 - **Batch Processing**: Optimized for multi-core CPUs and NVIDIA GPUs.
+
+## Examples
+
+Compare the original English game audio with the locally generated dub:
+
+| Original Audio (English) | Dubbed Audio (Portuguese) |
+| :--- | :--- |
+| [Original Clip](docs/artifacts/original_sample.wav) | [Dubbed Clip](docs/artifacts/dubbed_sample.wav) |
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.12+
-- NVIDIA GPU with CUDA 12.1+ (Recommended)
-- [uv](https://github.com/astral-sh/uv) (Recommended for dependency management)
+- **Python 3.12+**
+- **FFmpeg**: Required for audio processing.
+- **SoX**: Required for TTS synthesis.
+    - Windows: `scoop install sox` or `choco install sox`
+    - Linux: `sudo apt install sox`
+    - Mac: `brew install sox`
+- **Ollama**: Required for local translation.
+    - Install from [ollama.com](https://ollama.com/) and ensure it's running.
+- **NVIDIA GPU with CUDA 12.1+**: (Recommended for performance)
+- **[uv](https://github.com/astral-sh/uv)**: (Recommended for dependency management)
 
 ### Installation
 
-1.  Clone the repository:
+1.  **Clone the repository**:
     ```bash
     git clone https://github.com/yuriolive/open-game-dubber.git
     cd open-game-dubber
     ```
 
-2.  Install dependencies using `uv`:
+2.  **Install Python dependencies**:
     ```bash
     uv sync
     ```
-    
+
 ### Model Setup
 
-Before running the pipeline, you need to download the required AI models (Faster-Whisper, Demucs, etc.). We provide a convenient CLI command for this:
+Before running the pipeline, you need to download the required AI models (Faster-Whisper, Demucs, Qwen3-TTS) and pull the translation model in Ollama.
 
-```bash
-uv run dub download
-```
+1.  **Download AI Models**:
+    ```bash
+    uv run dub download
+    ```
+    *Note: This will also attempt to pull `llama3.1` from your local Ollama instance.*
+
+2.  **Manual Ollama Pull** (if step 1 fails):
+    ```bash
+    ollama pull llama3.1
+    ```
 
 ### Usage
 
-**CLI Commands**:
+#### Batch Processing
+Process all WAV files in a directory (default: `samples/`):
+```bash
+uv run dub dub-batch --target-lang "Brazilian Portuguese"
+```
 
-```text
- Usage: uv run dub [OPTIONS] COMMAND [ARGS]...
+**Options**:
+- `--input-dir`: Directory containing source WAV files (default: `samples`).
+- `--output-dir`: Directory to save dubbed files (default: `output`).
+- `--target-lang`: Target language for dubbing (e.g., "Portuguese", "Spanish", "Japanese").
+- `--limit`: Limit the number of files to process.
 
- Open Game Dubber CLI
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --install-completion          Install completion for the current shell.      │
-│ --show-completion             Show completion for the current shell, to copy │
-│                               it or customize the installation.              │
-│ --help                        Show this message and exit.                    │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ───────────────────────────────────────────────────────────────────╮
-│ download  Download all required AI models (Faster-Whisper, Demucs, etc.)     │
-│ hello     Test command to verify CLI is working.                             │
-╰──────────────────────────────────────────────────────────────────────────────╯
+#### Verification
+Check if the CLI and basic dependencies are working:
+```bash
+uv run dub hello
 ```
 
 ## Documentation
 
-- [Product Requirements Document (PRD)](PRD.md)
-- [Implementation Plan](PLAN.md)
+- [Product Requirements Document](PRD.md)
 
 ## License
 

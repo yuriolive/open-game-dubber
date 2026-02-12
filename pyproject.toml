@@ -14,15 +14,19 @@ requires-python = ">=3.12"
 dependencies = [
     "faster-whisper>=1.0.0",
     "ctranslate2>=4.0.0",
-    "torch>=2.4.0",
-    "torchaudio>=2.4.0",
+    "torch>=2.8.0",
+    "torchaudio>=2.8.0",
     "librosa>=0.10.0",
     "ollama>=0.3.0",
     "demucs>=4.0.0",
-    "deepfilternet>=0.5.0",
     "typer>=0.12.0",
     "gradio>=4.0.0",
     "soundfile>=0.13.1",
+    "transformers>=4.44.0",
+    "accelerate>=0.33.0",
+    "qwen-tts>=0.1.1",
+    "sox>=1.5.0",
+    "requests>=2.0.0",
 ]
 
 [tool.ruff]
@@ -43,3 +47,13 @@ dev = [
     "ruff>=0.15.0",
     "pre-commit>=3.0.0",
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torchaudio = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }
