@@ -64,8 +64,13 @@ class DubbingPipeline:
                 original_text = " ".join([seg["text"] for seg in segments])
                 logger.info(f"Transcription: {original_text}")
 
-                # 4. Translate
-                translation_result = self.translator.translate(original_text, self.target_lang)
+                # 4. Translate with duration awareness
+                vocal_duration = self.processor.get_audio_duration(vocal_path)
+                logger.info(f"Target duration: {vocal_duration:.2f}s")
+
+                translation_result = self.translator.translate(
+                    original_text, self.target_lang, target_duration=vocal_duration
+                )
                 translated_text = translation_result["text"]
                 tts_instruction = translation_result.get("tts_instruction", "")
                 target_language_response = translation_result.get("target_language", "")

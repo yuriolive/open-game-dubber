@@ -3,6 +3,7 @@ import os
 import subprocess
 from typing import Optional
 
+import librosa
 import soundfile as sf
 
 try:
@@ -143,6 +144,17 @@ class AudioProcessor:
             logger.error(f"DeepFilterNet denoising failed: {e}")
             return None
 
+    def get_audio_duration(self, audio_path: str) -> float:
+        """
+        Returns the duration of an audio file in seconds.
+        """
+        try:
+            info = sf.info(audio_path)
+            return info.duration
+        except Exception as e:
+            logger.error(f"Failed to get audio duration for {audio_path}: {e}")
+            return 0.0
+
     def mix_audio(self, vocal_path: str, background_path: str, output_path: str):
         """
         Combines vocals and background tracks using torchaudio.
@@ -154,14 +166,15 @@ class AudioProcessor:
         logger.info(f"Mixing audio to: {output_path}")
         vocal_data, sr_v = sf.read(vocal_path, always_2d=True)
         # sf reads as (frames, channels), torchaudio expects (channels, frames)
-        vocal = torch.from_numpy(vocal_data.T).float()
+        vocal = torch.from_numpy(vocal_data.T).float().to(self.device)
 
         bg_data, sr_b = sf.read(background_path, always_2d=True)
-        bg = torch.from_numpy(bg_data.T).float()
+        bg = torch.from_numpy(bg_data.T).float().to(self.device)
 
         # Ensure same sample rate and length (trim/pad if necessary)
         if sr_v != sr_b:
-            bg = torchaudio.transforms.Resample(sr_b, sr_v)(bg)
+            resampler = torchaudio.transforms.Resample(sr_b, sr_v).to(self.device)
+            bg = resampler(bg)
 
         # Handle channel mismatch (e.g., mono vocals + stereo background)
         if vocal.shape[0] != bg.shape[0]:
@@ -174,6 +187,26 @@ class AudioProcessor:
                 logger.warning("Unusual channel counts, simple expansion might not work perfectly.")
 
         min_len = min(vocal.shape[1], bg.shape[1])
+
+        # If vocals are significantly longer, time-stretch (speed up) to fit
+        if vocal.shape[1] > bg.shape[1]:
+            rate = vocal.shape[1] / bg.shape[1]
+
+            # Safety check: If we need to speed up by more than 25% (1.25x), just warn
+            if rate > 1.25:
+                logger.warning(f"High time-stretch rate detected: {rate:.2f}x. Audio may sound robotic.")
+
+            try:
+                # librosa.effects.time_stretch preserves pitch!
+                # Input must be (n_channels, n_samples) for multi-channel
+                vocal_np = vocal.cpu().detach().numpy()
+                stretched_vocal_np = librosa.effects.time_stretch(vocal_np, rate=rate)
+                vocal = torch.from_numpy(stretched_vocal_np).float().to(self.device)
+                logger.info(f"Time-stretched vocals by {rate:.2f}x to sync with background.")
+                min_len = bg.shape[1]  # Update min_len after stretching
+            except Exception as e:
+                logger.error(f"Time stretch failed: {e}. Falling back to truncation.")
+
         # Prevent digital clipping by reducing gain (simple additive mix can exceed 1.0)
         mixed = (vocal[:, :min_len] + bg[:, :min_len]) * 0.5
 

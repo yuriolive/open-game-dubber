@@ -17,7 +17,13 @@ class TestAudioProcessor(unittest.TestCase):
         # Patch modules before importing AudioProcessor
         self.modules_patcher = patch.dict(
             "sys.modules",
-            {"torch": MagicMock(), "torchaudio": MagicMock(), "demucs": MagicMock(), "demucs.separate": MagicMock()},
+            {
+                "torch": MagicMock(),
+                "torchaudio": MagicMock(),
+                "demucs": MagicMock(),
+                "demucs.separate": MagicMock(),
+                "librosa": MagicMock(),
+            },
         )
         self.modules_patcher.start()
 
@@ -61,6 +67,7 @@ class TestAudioProcessor(unittest.TestCase):
             # We need to reflect that in shape
             m.shape = array.shape
             m.float.return_value = m
+            m.to.return_value = m
             # Support addition and multiplication
             m.__add__.return_value = m
             m.__mul__.return_value = m
@@ -168,6 +175,43 @@ class TestAudioProcessor(unittest.TestCase):
             self.assertIn("-m", cmd_list)
             self.assertIn("DeepFilterNet3", cmd_list)
             self.assertIn(vocal_path, cmd_list)
+
+    def test_mix_audio_stretches_longer_vocals(self):
+        """Tests that mix_audio calls librosa.effects.time_stretch when vocals are longer."""
+        # Create dummy data: 200 frames for vocal, 100 frames for bg
+        vocal_data = np.random.uniform(-1, 1, (200, 1)).astype(np.float32)
+        sf.write(self.vocal_path, vocal_data, 16000)
+
+        bg_data = np.random.uniform(-1, 1, (100, 1)).astype(np.float32)
+        sf.write(self.bg_path, bg_data, 16000)
+
+        import sys
+
+        mock_torch = sys.modules["torch"]
+        mock_librosa = sys.modules["librosa"]
+
+        # Mock from_numpy returns a tensor-like mock
+        def mock_from_numpy(array):
+            m = MagicMock()
+            m.shape = array.shape
+            m.float.return_value = m
+            m.to.return_value = m
+            m.__getitem__.return_value = m
+            m.__add__.return_value = m
+            m.__mul__.return_value = m
+            # .cpu().detach().numpy()
+            m.cpu.return_value.detach.return_value.numpy.return_value = array
+            return m
+
+        mock_torch.from_numpy.side_effect = mock_from_numpy
+        mock_librosa.effects.time_stretch.return_value = np.random.uniform(-1, 1, (1, 100)).astype(np.float32)
+
+        self.processor.mix_audio(self.vocal_path, self.bg_path, self.output_path)
+
+        # Verify librosa was called with rate=2.0 (200/100)
+        mock_librosa.effects.time_stretch.assert_called_once()
+        args, kwargs = mock_librosa.effects.time_stretch.call_args
+        self.assertEqual(kwargs["rate"], 2.0)
 
 
 if __name__ == "__main__":

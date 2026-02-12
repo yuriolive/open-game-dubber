@@ -48,9 +48,11 @@ class OllamaTranslator:
             logger.error(f"Failed to pull model '{self.model}' via API: {e}")
             return False
 
-    def translate(self, text: str, target_lang: str, context: Optional[str] = None) -> dict:
+    def translate(
+        self, text: str, target_lang: str, context: Optional[str] = None, target_duration: Optional[float] = None
+    ) -> dict:
         """
-        Translate text to target language with optional context.
+        Translate text to target language with optional context and duration constraints.
 
         Returns:
             dict: {"text": str, "tts_instruction": str, "target_language": str}
@@ -59,9 +61,21 @@ class OllamaTranslator:
         if not text.strip():
             return {"text": "", "tts_instruction": "", "target_language": ""}
 
+        char_len = len(text)
+        # Allow slight expansion (common in translation) but keep it controlled for dubbing
+        max_char = int(char_len * 1.2) + 5
+
         prompt = f"""
         You are translating game dialogue from English to {target_lang}.
-        Maintain the character's tone, emotion, and any specific gaming terminology.
+
+        CRITICAL DUBBING INSTRUCTION:
+        The translation must be suitable for audio dubbing (Transcreation).
+        1. Maintain the character's tone, emotion, and gaming terminology.
+        2. LENGTH CONSTRAINT: Try to match the approximate length and syllable count of the original text.
+           - Original Text: "{text}" (~{char_len} chars).
+           - Target: Aim for roughly {char_len} to {max_char} chars.
+           - If the target language usually expands (like Spanish/Portuguese), use concise phrasing.
+           - Avoid unnecessary words so the audio fits the original duration.
 
         Respond in JSON format with two fields:
         1. "text": The translated dialogue (ONLY the translation, no explanations)
